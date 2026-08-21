@@ -62,187 +62,237 @@
     </div>
 
     <main class="main-content">
-      <!-- Order Selection & Live Progress Card -->
-      <div class="order-selection-card" id="orderSelectionCard">
-        <div class="order-selection-header">
-          <div class="order-title-group">
-            <span class="order-emoji">📦</span>
-            <span class="order-label">ĐƠN HÀNG KIỂM ĐẾM</span>
-          </div>
-          <button class="btn-view-checklist" id="orderChecklistBtn" onclick="showMobileOrderChecklist()" style="display: none;" title="Xem danh sách cần kiểm đếm">
-            📋 Xem Checklist
-          </button>
-        </div>
-        <div class="order-select-container">
-          <select id="activeOrderSelect" onchange="handleOrderChange(this.value)" class="mobile-order-select">
-            <option value="">-- Quét tự do (Không theo đơn) --</option>
-          </select>
-        </div>
-
-        <!-- Order Progress Widget inside card -->
-        <div class="order-progress-widget" id="orderProgressWidget" style="display: none;">
-          <div class="order-progress-header">
-            <span id="orderWidgetName" class="order-widget-name">DH-DUAN-01</span>
-            <span id="orderWidgetPercent" class="order-widget-percent">0%</span>
-          </div>
-          <div class="order-progress-track">
-            <div id="orderWidgetFill" class="order-progress-fill" style="width: 0%;"></div>
-          </div>
-          <div class="order-progress-footer">
-            <span id="orderWidgetStatus">Đã kiểm: <b>0</b> / <b>0</b> SP</span>
-            <span id="orderWidgetRemaining" class="order-remaining">Thiếu: 0</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Camera Card -->
-      <div class="scanner-card">
-        <!-- Viewfinder -->
-        <div class="video-container" id="videoWrapper">
-          <div id="reader"></div>
-          <div class="scan-overlay">
-            <div class="scan-frame" id="scanFrameBox">
-              <span class="corner top-left"></span>
-              <span class="corner top-right"></span>
-              <span class="corner bottom-left"></span>
-              <span class="corner bottom-right"></span>
-              <div class="scan-line"></div>
-              <div id="ocrFrameHint" class="ocr-frame-hint" style="display: none;">📸 Căn chữ Serial/IMEI vào khung này</div>
+      <!-- TAB 1: MÁY QUÉT CAMERA (SCANNER PANE) -->
+      <div id="clientPaneScanner" class="client-tab-pane active">
+        <!-- Order Selection & Live Progress Card -->
+        <div class="order-selection-card" id="orderSelectionCard">
+          <div class="order-selection-header">
+            <div class="order-title-group">
+              <span class="order-emoji">📦</span>
+              <span class="order-label">ĐƠN HÀNG KIỂM ĐẾM</span>
             </div>
-          </div>
-          <div class="scanner-idle-placeholder" id="idlePlaceholder">
-            <div class="idle-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-            </div>
-            <p id="idleMainText">Sẵn sàng quét mã</p>
-            <span id="idleSubText" class="idle-sub">Nhấn <b>"Bật Camera Quét"</b> ở dưới</span>
-          </div>
-        </div>
-
-        <!-- Mode Selector & Settings -->
-        <div class="mode-bar">
-          <div class="scan-mode-selector">
-            <label class="mode-label">
-              <input type="radio" name="scanMode" value="1d" checked>
-              <span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>
-                1D Vạch
-              </span>
-            </label>
-            <label class="mode-label">
-              <input type="radio" name="scanMode" value="2d">
-              <span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
-                2D QR
-              </span>
-            </label>
-            <label class="mode-label">
-              <input type="radio" name="scanMode" value="ocr">
-              <span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
-                AI OCR
-              </span>
-            </label>
-          </div>
-
-          <div class="continuous-toggle" id="continuousToggleWrapper">
-            <span class="toggle-text">Quét liên tục</span>
-            <label class="switch">
-              <input type="checkbox" id="continuousMode">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Action Buttons (Mobile-first Thumb Grid) -->
-        <div class="controls-grid">
-          <button id="startBtn" class="btn btn-action-primary" onclick="startScanner()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
-            <span>Bật Camera Quét</span>
-          </button>
-          <button id="flashBtn" class="btn btn-action-flash" style="display: none;" title="Bật/Tắt Flash">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span id="flashText">Flash</span>
-          </button>
-          <button id="stopBtn" class="btn btn-action-stop" style="display: none;" onclick="stopScanner()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" ry="3"/></svg>
-            <span>Dừng Quét</span>
-          </button>
-          <label class="btn btn-action-secondary" for="fileInput">
-            <input type="file" id="fileInput" accept="image/*" capture="environment" style="display: none;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-            <span>Tải / Chụp ảnh</span>
-          </label>
-        </div>
-      </div>
-
-      <!-- Result Card -->
-      <div id="resultCard" class="result-card">
-        <div class="result-header">
-          <div class="result-header-title">
-            <div class="pulse-dot"></div>
-            <h3>Kết quả quét gần nhất</h3>
-          </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span id="codeType" class="code-badge">-</span>
-            <button type="button" id="quickDeleteScanBtn" class="btn-quick-del" onclick="deleteCurrentScan()" style="display: none;" title="Xóa mã này nếu quét nhầm">
-              🗑️ Xóa
+            <button class="btn-view-checklist" id="orderChecklistBtn" onclick="showMobileOrderChecklist()" style="display: none;" title="Xem danh sách cần kiểm đếm">
+              📋 Xem Checklist
             </button>
           </div>
+          <div class="order-select-container">
+            <select id="activeOrderSelect" onchange="handleOrderChange(this.value)" class="mobile-order-select">
+              <option value="">-- Quét tự do (Không theo đơn) --</option>
+            </select>
+          </div>
+
+          <!-- Order Progress Widget inside card -->
+          <div class="order-progress-widget" id="orderProgressWidget" style="display: none;">
+            <div class="order-progress-header">
+              <span id="orderWidgetName" class="order-widget-name">DH-DUAN-01</span>
+              <span id="orderWidgetPercent" class="order-widget-percent">0%</span>
+            </div>
+            <div class="order-progress-track">
+              <div id="orderWidgetFill" class="order-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="order-progress-footer">
+              <span id="orderWidgetStatus">Đã kiểm: <b>0</b> / <b>0</b> SP</span>
+              <span id="orderWidgetRemaining" class="order-remaining">Thiếu: 0</span>
+            </div>
+          </div>
         </div>
 
-        <div class="result-body">
-          <div class="info-block main-value-block">
-            <span class="info-label">DỮ LIỆU MÃ QUÉT (BARCODE / QR)</span>
-            <div class="raw-data-row">
-              <span id="rawData" class="raw-data-text">-</span>
-              <button class="copy-btn" onclick="copyRawData()" title="Sao chép">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+        <!-- Camera Card -->
+        <div class="scanner-card">
+          <!-- Viewfinder -->
+          <div class="video-container" id="videoWrapper">
+            <div id="reader"></div>
+            <div class="scan-overlay">
+              <div class="scan-frame" id="scanFrameBox">
+                <span class="corner top-left"></span>
+                <span class="corner top-right"></span>
+                <span class="corner bottom-left"></span>
+                <span class="corner bottom-right"></span>
+                <div class="scan-line"></div>
+                <div id="ocrFrameHint" class="ocr-frame-hint" style="display: none;">📸 Căn chữ Serial/IMEI vào khung này</div>
+              </div>
+            </div>
+            <div class="scanner-idle-placeholder" id="idlePlaceholder">
+              <div class="idle-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+              </div>
+              <p id="idleMainText">Sẵn sàng quét mã</p>
+              <span id="idleSubText" class="idle-sub">Nhấn <b>"Bật Camera Quét"</b> ở dưới</span>
+            </div>
+          </div>
+
+          <!-- Mode Selector & Settings -->
+          <div class="mode-bar">
+            <div class="scan-mode-selector">
+              <label class="mode-label">
+                <input type="radio" name="scanMode" value="1d" checked>
+                <span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>
+                  1D Vạch
+                </span>
+              </label>
+              <label class="mode-label">
+                <input type="radio" name="scanMode" value="2d">
+                <span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+                  2D QR
+                </span>
+              </label>
+              <label class="mode-label">
+                <input type="radio" name="scanMode" value="ocr">
+                <span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                  AI OCR
+                </span>
+              </label>
+            </div>
+
+            <div class="continuous-toggle" id="continuousToggleWrapper">
+              <span class="toggle-text">Quét liên tục</span>
+              <label class="switch">
+                <input type="checkbox" id="continuousMode">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Action Buttons (Mobile-first Thumb Grid) -->
+          <div class="controls-grid">
+            <button id="startBtn" class="btn btn-action-primary" onclick="startScanner()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+              <span>Bật Camera Quét</span>
+            </button>
+            <button id="flashBtn" class="btn btn-action-flash" style="display: none;" title="Bật/Tắt Flash">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span id="flashText">Flash</span>
+            </button>
+            <button id="stopBtn" class="btn btn-action-stop" style="display: none;" onclick="stopScanner()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" ry="3"/></svg>
+              <span>Dừng Quét</span>
+            </button>
+            <label class="btn btn-action-secondary" for="fileInput">
+              <input type="file" id="fileInput" accept="image/*" capture="environment" style="display: none;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              <span>Tải / Chụp ảnh</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Result Card -->
+        <div id="resultCard" class="result-card">
+          <div class="result-header">
+            <div class="result-header-title">
+              <div class="pulse-dot"></div>
+              <h3>Kết quả quét gần nhất</h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span id="codeType" class="code-badge">-</span>
+              <button type="button" id="quickDeleteScanBtn" class="btn-quick-del" onclick="deleteCurrentScan()" style="display: none;" title="Xóa mã này nếu quét nhầm">
+                🗑️ Xóa
               </button>
             </div>
           </div>
 
-          <div class="info-grid">
-            <div class="info-block product-block">
-              <div class="info-label-row">
-                <span class="info-label">TÊN SẢN PHẨM</span>
-                <button type="button" id="quickEditProdBtn" class="quick-edit-badge" onclick="toggleInlineProductSearch()" title="Đổi hoặc chọn sản phẩm khác" style="display: none;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                  <span>Đổi SP</span>
+          <div class="result-body">
+            <div class="info-block main-value-block">
+              <span class="info-label">DỮ LIỆU MÃ QUÉT (BARCODE / QR)</span>
+              <div class="raw-data-row">
+                <span id="rawData" class="raw-data-text">-</span>
+                <button class="copy-btn" onclick="copyRawData()" title="Sao chép">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                 </button>
               </div>
-              <div class="product-picker-container">
-                <div id="productDisplayBox" class="product-display-box" onclick="toggleInlineProductSearch()">
-                  <span id="productInfo" class="info-value product-name">-</span>
-                  <span class="edit-icon-hint">✏️</span>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-block product-block">
+                <div class="info-label-row">
+                  <span class="info-label">TÊN SẢN PHẨM</span>
+                  <button type="button" id="quickEditProdBtn" class="quick-edit-badge" onclick="toggleInlineProductSearch()" title="Đổi hoặc chọn sản phẩm khác" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                    <span>Đổi SP</span>
+                  </button>
                 </div>
-                <!-- Inline Autocomplete Search Box with Save Button -->
-                <div id="inlineSearchWrapper" class="inline-search-wrapper" style="display: none;">
-                  <div class="inline-input-row">
-                    <input type="text" id="inlineProductSearch" class="inline-product-input" placeholder="🔍 Nhập hoặc chọn tên SP..." autocomplete="off">
-                    <button type="button" id="btnSaveInlineProd" class="btn-save-inline" onclick="saveCustomInlineProduct()" title="Lưu tên sản phẩm">
-                      💾 Lưu
-                    </button>
-                    <button type="button" class="btn-cancel-inline" onclick="toggleInlineProductSearch(false)" title="Hủy bỏ">
-                      ✕
-                    </button>
+                <div class="product-picker-container">
+                  <div id="productDisplayBox" class="product-display-box" onclick="toggleInlineProductSearch()">
+                    <span id="productInfo" class="info-value product-name">-</span>
+                    <span class="edit-icon-hint">✏️</span>
                   </div>
-                  <div id="inlineAutocompleteList" class="inline-autocomplete-list"></div>
+                  <!-- Inline Autocomplete Search Box with Save Button -->
+                  <div id="inlineSearchWrapper" class="inline-search-wrapper" style="display: none;">
+                    <div class="inline-input-row">
+                      <input type="text" id="inlineProductSearch" class="inline-product-input" placeholder="🔍 Nhập hoặc chọn tên SP..." autocomplete="off">
+                      <button type="button" id="btnSaveInlineProd" class="btn-save-inline" onclick="saveCustomInlineProduct()" title="Lưu tên sản phẩm">
+                        💾 Lưu
+                      </button>
+                      <button type="button" class="btn-cancel-inline" onclick="toggleInlineProductSearch(false)" title="Hủy bỏ">
+                        ✕
+                      </button>
+                    </div>
+                    <div id="inlineAutocompleteList" class="inline-autocomplete-list"></div>
+                  </div>
                 </div>
               </div>
+              <div class="info-block">
+                <span class="info-label">SỐ SERIAL</span>
+                <span id="serialNumber" class="info-value serial-number">-</span>
+              </div>
             </div>
-            <div class="info-block">
-              <span class="info-label">SỐ SERIAL</span>
-              <span id="serialNumber" class="info-value serial-number">-</span>
-            </div>
+          </div>
+
+          <div class="result-footer">
+            <div id="serverStatus" class="result-status">Chưa có dữ liệu</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: ĐƠN HÀNG & KIỂM TRA ĐỒ CÒN THIẾU (ORDERS PANE) -->
+      <div id="clientPaneOrders" class="client-tab-pane" style="display: none;">
+        <div class="mobile-orders-header">
+          <div class="orders-header-title">
+            <h3>📦 Đơn Hàng & Tiến Độ</h3>
+            <p>Kiểm tra danh mục và xem các thiết bị còn thiếu</p>
+          </div>
+          <button class="btn-refresh-orders" onclick="loadClientOrdersTab()" title="Làm mới">
+            🔄 Làm mới
+          </button>
+        </div>
+
+        <!-- Search and Filter Bar -->
+        <div class="mobile-order-filter-bar">
+          <div class="mobile-search-box">
+            <input type="text" id="clientOrderSearchInput" placeholder="🔍 Tìm mã đơn, tên hàng..." oninput="renderClientOrdersList()">
+          </div>
+          <div class="mobile-filter-chips">
+            <button class="filter-chip active" id="chipOrderAll" onclick="setOrderFilterChip('all')">Tất cả</button>
+            <button class="filter-chip" id="chipOrderMissing" onclick="setOrderFilterChip('missing')">🔴 Còn thiếu</button>
+            <button class="filter-chip" id="chipOrderDone" onclick="setOrderFilterChip('done')">✅ Đã đủ</button>
           </div>
         </div>
 
-        <div class="result-footer">
-          <div id="serverStatus" class="result-status">Chưa có dữ liệu</div>
+        <!-- Order Cards Container -->
+        <div id="clientOrdersListContainer" class="mobile-orders-list">
+          <div class="loading-state">Đang tải danh sách đơn hàng...</div>
         </div>
       </div>
     </main>
+
+    <!-- MOBILE BOTTOM NAVIGATION BAR -->
+    <nav class="mobile-bottom-nav">
+      <button class="nav-tab-btn active" id="btnNavScanner" onclick="switchClientTab('scanner')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M7 12h10"/></svg>
+        <span>Quét mã</span>
+      </button>
+      <button class="nav-tab-btn" id="btnNavOrders" onclick="switchClientTab('orders')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span>Đơn hàng</span>
+        <span id="navMissingOrdersBadge" class="nav-badge" style="display: none;">0</span>
+      </button>
+      <button class="nav-tab-btn" id="btnNavHistory" onclick="document.getElementById('historyBtn').click()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Lịch sử</span>
+      </button>
+    </nav>
 
     <!-- MOBILE CLIENT LOGIN OVERLAY -->
     <div id="clientLoginOverlay" class="client-login-overlay" style="display: none;">

@@ -678,12 +678,26 @@ async function loadOrdersForClient() {
     const result = await res.json();
     if (result.success && Array.isArray(result.data)) {
       const orders = result.data;
+      cachedClientOrders = orders;
+
       let html = '<option value="">-- Quét tự do (Không theo đơn) --</option>';
       orders.forEach(o => {
         const isSelected = o.order_code === activeOrderCode ? 'selected' : '';
         html += `<option value="${o.order_code}" ${isSelected}>[${o.order_code}] ${o.order_name} (${o.percent}%)</option>`;
       });
       select.innerHTML = html;
+
+      // Cập nhật badge số đơn còn thiếu trên thanh bottom nav
+      const missingOrdersCount = orders.filter(o => o.total_scanned < o.total_expected).length;
+      const navBadge = document.getElementById('navMissingOrdersBadge');
+      if (navBadge) {
+        if (missingOrdersCount > 0) {
+          navBadge.textContent = missingOrdersCount;
+          navBadge.style.display = 'block';
+        } else {
+          navBadge.style.display = 'none';
+        }
+      }
 
       // Nếu activeOrderCode không hợp lệ trong danh sách, reset
       if (activeOrderCode && !orders.some(o => o.order_code === activeOrderCode)) {
@@ -693,6 +707,9 @@ async function loadOrdersForClient() {
       }
 
       updateOrderProgressWidget(activeOrderCode);
+      if (clientCurrentTab === 'orders') {
+        renderClientOrdersList();
+      }
     }
   } catch(e) {
     console.warn("Không tải được danh sách đơn hàng cho client:", e);
@@ -1912,4 +1929,320 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// ===== QUẢN LÝ TAB ĐƠN HÀNG TRÊN CLIENT & KIỂM TRA ĐỒ CÒN THIẾU =====
+var clientCurrentTab = 'scanner';
+var cachedClientOrders = [];
+var clientOrderFilter = 'all';
+
+function switchClientTab(tabName) {
+  clientCurrentTab = tabName;
+  const paneScanner = document.getElementById('clientPaneScanner');
+  const paneOrders = document.getElementById('clientPaneOrders');
+  const btnNavScanner = document.getElementById('btnNavScanner');
+  const btnNavOrders = document.getElementById('btnNavOrders');
+
+  if (paneScanner) paneScanner.style.display = tabName === 'scanner' ? 'flex' : 'none';
+  if (paneOrders) paneOrders.style.display = tabName === 'orders' ? 'flex' : 'none';
+
+  if (btnNavScanner) btnNavScanner.classList.toggle('active', tabName === 'scanner');
+  if (btnNavOrders) btnNavOrders.classList.toggle('active', tabName === 'orders');
+
+  if (tabName === 'orders') {
+    loadClientOrdersTab();
+  }
+}
+
+window.switchClientTab = switchClientTab;
+
+async function loadClientOrdersTab() {
+  const container = document.getElementById('clientOrdersListContainer');
+  if (container) {
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:#94a3b8;">Đang tải danh sách đơn hàng...</div>`;
+  }
+
+  try {
+    const res = await fetch('/api/orders');
+    const result = await res.json();
+    if (result.success) {
+      cachedClientOrders = result.data || [];
+
+      // Cập nhật badge số đơn còn thiếu trên thanh bottom nav
+      const missingOrdersCount = cachedClientOrders.filter(o => o.total_scanned < o.total_expected).length;
+      const navBadge = document.getElementById('navMissingOrdersBadge');
+      if (navBadge) {
+        if (missingOrdersCount > 0) {
+          navBadge.textContent = missingOrdersCount;
+          navBadge.style.display = 'block';
+        } else {
+          navBadge.style.display = 'none';
+        }
+      }
+
+      renderClientOrdersList();
+    } else {
+      if (container) container.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Lỗi tải dữ liệu đơn hàng.</div>`;
+    }
+  } catch (err) {
+    console.error("Lỗi khi tải danh sách đơn hàng client:", err);
+    if (container) container.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444;">Không thể kết nối đến máy chủ.</div>`;
+  }
+}
+
+window.loadClientOrdersTab = loadClientOrdersTab;
+
+function setOrderFilterChip(filterType) {
+  clientOrderFilter = filterType;
+  const chipAll = document.getElementById('chipOrderAll');
+  const chipMissing = document.getElementById('chipOrderMissing');
+  const chipDone = document.getElementById('chipOrderDone');
+
+  if (chipAll) chipAll.classList.toggle('active', filterType === 'all');
+  if (chipMissing) chipMissing.classList.toggle('active', filterType === 'missing');
+  if (chipDone) chipDone.classList.toggle('active', filterType === 'done');
+
+  renderClientOrdersList();
+}
+
+window.setOrderFilterChip = setOrderFilterChip;
+
+function renderClientOrdersList() {
+  const container = document.getElementById('clientOrdersListContainer');
+  if (!container) return;
+
+  const query = document.getElementById('clientOrderSearchInput')?.value.trim().toLowerCase() || '';
+
+  let filtered = cachedClientOrders.filter(order => {
+    const isComplete = (order.total_scanned >= order.total_expected && order.total_expected > 0);
+    
+    // Filter chip
+    if (clientOrderFilter === 'missing' && isComplete) return false;
+    if (clientOrderFilter === 'done' && !isComplete) return false;
+
+    // Search query
+    if (query) {
+      const matchCode = (order.order_code || '').toLowerCase().includes(query);
+      const matchName = (order.order_name || '').toLowerCase().includes(query);
+      const matchCustomer = (order.customer_name || '').toLowerCase().includes(query);
+      if (!matchCode && !matchName && !matchCustomer) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: var(--card-bg); border-radius: 14px; border: 1px solid var(--border-color); color: var(--text-muted);">
+        <p style="font-size: 1.5rem; margin-bottom: 6px;">📦</p>
+        <b style="font-size: 0.9rem;">Không tìm thấy đơn hàng nào</b>
+        <p style="font-size: 0.75rem; margin-top: 4px;">Thử đổi từ khóa hoặc bộ lọc phía trên.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(order => {
+    const isComplete = (order.total_scanned >= order.total_expected && order.total_expected > 0);
+    const missingQty = Math.max(0, (order.total_expected || 0) - (order.total_scanned || 0));
+    const percent = order.percent || 0;
+
+    return `
+      <div class="client-order-card ${isComplete ? 'is-complete' : 'is-missing'}">
+        <div class="client-order-card-header">
+          <span class="order-code-badge">${order.order_code}</span>
+          <span class="order-status-pill ${isComplete ? 'complete' : 'missing'}">
+            ${isComplete ? '✅ Đã đủ 100%' : `🔴 Còn thiếu ${missingQty} SP`}
+          </span>
+        </div>
+        
+        <div class="client-order-name">${order.order_name}</div>
+        <div class="client-order-customer">👤 ${order.customer_name || 'Nội bộ'} ${order.notes ? `• ${order.notes}` : ''}</div>
+
+        <div class="client-order-progress-wrapper">
+          <div class="progress-info-row">
+            <span class="progress-qty">Đã kiểm: <b>${order.total_scanned || 0}</b> / <b>${order.total_expected || 0}</b> SP</span>
+            <span class="progress-pct ${isComplete ? 'done' : ''}">${percent}%</span>
+          </div>
+          <div class="client-order-progress-track">
+            <div class="client-order-progress-fill ${isComplete ? 'complete' : ''}" style="width: ${percent}%;"></div>
+          </div>
+        </div>
+
+        <div class="client-order-actions">
+          <button class="btn-card-inspect" onclick="inspectOrderMissingDetails('${order.order_code}')">
+            📋 Xem đồ còn thiếu
+          </button>
+          <button class="btn-card-scan-now" onclick="selectOrderAndStartScan('${order.order_code}')">
+            📷 Quét đơn này
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+window.renderClientOrdersList = renderClientOrdersList;
+
+function selectOrderAndStartScan(orderCode) {
+  activeOrderCode = orderCode;
+  const select = document.getElementById('activeOrderSelect');
+  if (select) {
+    select.value = orderCode;
+  }
+  updateOrderProgressWidget(orderCode);
+
+  Swal.close();
+  switchClientTab('scanner');
+
+  if (!isScanning) {
+    startScanner();
+  }
+
+  Swal.fire({
+    toast: true,
+    position: 'top',
+    icon: 'success',
+    title: `Đang quét đơn hàng ${orderCode}`,
+    showConfirmButton: false,
+    timer: 2000
+  });
+}
+
+window.selectOrderAndStartScan = selectOrderAndStartScan;
+
+async function inspectOrderMissingDetails(orderCode, filterMode = 'all') {
+  try {
+    const res = await fetch(`/api/orders/${orderCode}`);
+    const result = await res.json();
+    if (!result.success) throw new Error(result.message);
+
+    const order = result.data;
+    const items = order.items || [];
+    const totalItems = items.length;
+    const missingItems = items.filter(it => it.quantity_scanned < it.quantity_expected);
+    const completedItems = items.filter(it => it.quantity_scanned >= it.quantity_expected);
+    const missingTotalQty = Math.max(0, order.total_expected - order.total_scanned);
+
+    function buildRowsHtml(mode) {
+      let displayItems = items;
+      if (mode === 'missing') displayItems = missingItems;
+      if (mode === 'done') displayItems = completedItems;
+
+      if (displayItems.length === 0) {
+        return `<div style="text-align: center; padding: 25px 10px; color: #94a3b8; font-size: 13px;">${mode === 'missing' ? '🎉 Tất cả mặt hàng trong đơn này đều đã đủ số lượng!' : 'Chưa có mặt hàng nào đạt.'}</div>`;
+      }
+
+      return displayItems.map((it, idx) => {
+        const isDone = it.quantity_scanned >= it.quantity_expected;
+        const missingPart = Math.max(0, it.quantity_expected - it.quantity_scanned);
+
+        return `
+          <div style="background: ${isDone ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.06)'}; border: 1px solid ${isDone ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.25)'}; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+              <div style="flex: 1; text-align: left;">
+                <div style="font-weight: 800; font-size: 13px; color: var(--text-main, #0f172a); line-height: 1.3;">${it.product_name}</div>
+                <div style="color: #64748b; font-size: 11px; font-family: monospace; margin-top: 2px;">
+                  Mã SP: <b>${it.product_code}</b> ${it.notes ? `• ${it.notes}` : ''}
+                </div>
+              </div>
+              <div style="text-align: right; flex-shrink: 0;">
+                <span style="font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 12px; display: inline-block; ${isDone ? 'background:#ecfdf5; color:#059669; border:1px solid #a7f3d0;' : 'background:#fef2f2; color:#ef4444; border:1px solid #fecaca;'}">
+                  ${isDone ? `✅ Đã đủ (${it.quantity_scanned}/${it.quantity_expected})` : `🔴 Còn thiếu ${missingPart}`}
+                </span>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 11.5px; color: #475569; border-top: 1px dashed rgba(100, 116, 139, 0.2); padding-top: 6px;">
+              <span>Yêu cầu: <b>${it.quantity_expected}</b></span>
+              <span style="color: ${isDone ? '#059669' : '#d97706'}; font-weight: 700;">Đã quét: <b>${it.quantity_scanned}</b></span>
+              <span style="color: ${isDone ? '#059669' : '#dc2626'}; font-weight: 800;">${isDone ? 'Đạt chuẩn' : `Thiếu: ${missingPart}`}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    const modalHtml = `
+      <div style="text-align: left; font-family: inherit;">
+        <!-- Top Stats Overview -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px;">
+          <div style="background: rgba(79, 70, 229, 0.08); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid rgba(79, 70, 229, 0.15);">
+            <div style="font-size: 10px; font-weight: 700; color: #4f46e5;">TỔNG CẦN QUÉT</div>
+            <div style="font-size: 15px; font-weight: 800; color: #4f46e5;">${order.total_expected} SP</div>
+          </div>
+          <div style="background: rgba(16, 185, 129, 0.08); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid rgba(16, 185, 129, 0.15);">
+            <div style="font-size: 10px; font-weight: 700; color: #059669;">ĐÃ QUÉT ĐẠT</div>
+            <div style="font-size: 15px; font-weight: 800; color: #059669;">${order.total_scanned} SP</div>
+          </div>
+          <div style="background: rgba(239, 68, 68, 0.08); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid rgba(239, 68, 68, 0.15);">
+            <div style="font-size: 10px; font-weight: 700; color: #dc2626;">CÒN THIẾU</div>
+            <div style="font-size: 15px; font-weight: 800; color: #dc2626;">${missingTotalQty} SP</div>
+          </div>
+        </div>
+
+        <!-- Filter Sub-tabs inside Modal -->
+        <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+          <button id="modalFilterAll" onclick="setModalFilter('all')" style="flex: 1; padding: 6px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; border: 1px solid #cbd5e1; background: #4f46e5; color: white; cursor: pointer;">
+            Tất cả (${totalItems})
+          </button>
+          <button id="modalFilterMissing" onclick="setModalFilter('missing')" style="flex: 1; padding: 6px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; border: 1px solid #cbd5e1; background: #f8fafc; color: #dc2626; cursor: pointer;">
+            🔴 Còn thiếu (${missingItems.length})
+          </button>
+          <button id="modalFilterDone" onclick="setModalFilter('done')" style="flex: 1; padding: 6px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 700; border: 1px solid #cbd5e1; background: #f8fafc; color: #059669; cursor: pointer;">
+            ✅ Đã đủ (${completedItems.length})
+          </button>
+        </div>
+
+        <!-- Items Container -->
+        <div id="modalItemsList" style="max-height: 52vh; overflow-y: auto; padding-right: 2px;">
+          ${buildRowsHtml(filterMode)}
+        </div>
+
+        <!-- Action Button to start scanning immediately -->
+        <div style="margin-top: 14px;">
+          <button onclick="selectOrderAndStartScan('${orderCode}')" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; font-weight: 800; font-size: 14px; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);">
+            📷 Bắt Đầu Quét Đơn Hàng Này Ngay
+          </button>
+        </div>
+      </div>
+    `;
+
+    Swal.fire({
+      title: `<span style="font-size: 16px;">📦 Đơn hàng ${order.order_code}</span>`,
+      html: modalHtml,
+      width: '95%',
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: {
+        popup: 'mobile-swal-popup'
+      },
+      didOpen: () => {
+        window.setModalFilter = function(mode) {
+          const listEl = document.getElementById('modalItemsList');
+          if (listEl) listEl.innerHTML = buildRowsHtml(mode);
+
+          const btnAll = document.getElementById('modalFilterAll');
+          const btnMissing = document.getElementById('modalFilterMissing');
+          const btnDone = document.getElementById('modalFilterDone');
+
+          if (btnAll) {
+            btnAll.style.background = mode === 'all' ? '#4f46e5' : '#f8fafc';
+            btnAll.style.color = mode === 'all' ? '#ffffff' : '#475569';
+          }
+          if (btnMissing) {
+            btnMissing.style.background = mode === 'missing' ? '#ef4444' : '#f8fafc';
+            btnMissing.style.color = mode === 'missing' ? '#ffffff' : '#dc2626';
+          }
+          if (btnDone) {
+            btnDone.style.background = mode === 'done' ? '#10b981' : '#f8fafc';
+            btnDone.style.color = mode === 'done' ? '#ffffff' : '#059669';
+          }
+        };
+      }
+    });
+
+  } catch(e) {
+    Swal.fire('Lỗi', 'Không thể tải chi tiết đơn hàng: ' + e.message, 'error');
+  }
+}
+
+window.inspectOrderMissingDetails = inspectOrderMissingDetails;
 
