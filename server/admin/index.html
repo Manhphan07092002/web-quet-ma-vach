@@ -204,8 +204,14 @@
           </div>
 
           <div class="filter-group">
+            <label for="scanDateFilter">📅 Ngày:</label>
+            <input type="date" id="scanDateFilter" class="filter-select" style="min-width: 140px; padding: 7px 10px;" onchange="handleScanFilterChange()" title="Lọc theo ngày quét">
+            <button class="btn btn-secondary" style="padding: 6px 8px; font-size: 11px; margin-left: -4px;" onclick="clearDateFilter()" title="Xem tất cả các ngày">Tất cả ngày</button>
+          </div>
+
+          <div class="filter-group">
             <label for="scanSearchInput">🔍 Tìm kiếm:</label>
-            <input type="text" id="scanSearchInput" class="search-input" placeholder="Tìm số S/N, tên sản phẩm..." oninput="handleScanFilterChange()">
+            <input type="text" id="scanSearchInput" class="search-input" placeholder="Tìm S/N, tên SP..." oninput="handleScanFilterChange()">
           </div>
 
           <div class="filter-group" style="margin-left: auto;">

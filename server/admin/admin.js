@@ -269,19 +269,36 @@ async function fetchScans(highlightId = null) {
   }
 }
 
+function clearDateFilter() {
+  const dateInput = document.getElementById('scanDateFilter');
+  if (dateInput) dateInput.value = '';
+  renderScans();
+}
+
+window.clearDateFilter = clearDateFilter;
+
 function renderScans(highlightId = null) {
   const flatTbody = document.getElementById('scanTableBody');
   const groupedWrapper = document.getElementById('groupedOrdersWrapper');
   const orderFilter = document.getElementById('scanOrderFilterSelect')?.value || 'ALL';
+  const dateFilter = document.getElementById('scanDateFilter')?.value || '';
   const query = document.getElementById('scanSearchInput')?.value.trim().toLowerCase() || '';
 
   let filtered = cachedScans.filter(scan => {
+    // 1. Lọc theo đơn hàng
     if (orderFilter === 'NO_ORDER') {
       if (scan.order_code) return false;
     } else if (orderFilter !== 'ALL') {
       if (scan.order_code !== orderFilter) return false;
     }
 
+    // 2. Lọc theo ngày quét
+    if (dateFilter && scan.scanned_at) {
+      const scanDate = new Date(scan.scanned_at).toISOString().slice(0, 10);
+      if (scanDate !== dateFilter) return false;
+    }
+
+    // 3. Tìm kiếm theo từ khóa
     if (query) {
       const matchRaw = (scan.raw_data || '').toLowerCase().includes(query);
       const matchName = (scan.product_name || '').toLowerCase().includes(query);

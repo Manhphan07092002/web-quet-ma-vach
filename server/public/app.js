@@ -2246,3 +2246,44 @@ async function inspectOrderMissingDetails(orderCode, filterMode = 'all') {
 
 window.inspectOrderMissingDetails = inspectOrderMissingDetails;
 
+// ===== HỖ TRỢ ĐẦU ĐỌC MÃ VẠCH CẦM TAY (HARDWARE BARCODE GUN / BLUETOOTH HID) =====
+(function initHardwareBarcodeGunListener() {
+  let buffer = "";
+  let lastKeyTime = Date.now();
+
+  window.addEventListener("keydown", (e) => {
+    const activeEl = document.activeElement;
+    const isInputActive = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastKeyTime;
+    lastKeyTime = currentTime;
+
+    // Đầu đọc mã vạch chuyên dụng gửi chuỗi ký tự siêu tốc (< 60ms)
+    if (timeDiff > 80) {
+      buffer = "";
+    }
+
+    if (e.key === "Enter") {
+      if (buffer.length >= 3) {
+        e.preventDefault();
+        const scannedCode = buffer.trim();
+        buffer = "";
+
+        if (isInputActive) {
+          activeEl.blur();
+        }
+
+        console.log("🔫 Nhận diện mã từ đầu đọc chuyên dụng:", scannedCode);
+        sendToServer(scannedCode, "HARDWARE_GUN");
+      }
+      buffer = "";
+      return;
+    }
+
+    if (e.key && e.key.length === 1) {
+      buffer += e.key;
+    }
+  });
+})();
+
