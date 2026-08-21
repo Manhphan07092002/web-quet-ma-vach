@@ -19,5 +19,4 @@ services:
       - ./server/sqlite.db:/app/server/sqlite.db
       - ./server/uploads:/app/server/uploads
       # Lưu giữ chứng chỉ SSL tự ký
-      - ./server/key.pem:/app/server/key.pem
-      - ./server/cert.pem:/app/server/cert.pem
+      - ./server/certs:/app/server/certs
