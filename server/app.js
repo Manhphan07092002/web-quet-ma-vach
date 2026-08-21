@@ -560,6 +560,37 @@ app.get("/api/products", (req, res) => {
       `).all(search, search, search);
     } else {
       rows = db.prepare('SELECT * FROM products ORDER BY id DESC').all();
+      // Tự động nạp danh mục 18 sản phẩm nếu bảng đang rỗng
+      if (rows.length === 0) {
+        const insertProd = db.prepare(`
+          INSERT OR IGNORE INTO products (product_code, product_name, model, description)
+          VALUES (@product_code, @product_name, @model, @description)
+        `);
+        const defaultProducts = [
+          { product_code: 'XGS-118', product_name: 'Thiết bị tường lửa Firewall Sophos XGS 118', model: 'Sophos XGS Series', description: 'Tường lửa bảo mật doanh nghiệp 8 Port GbE' },
+          { product_code: 'XGS-118-LIC-12M', product_name: 'XGS 118 Standard Protection - 12 MOS', model: 'Bản quyền 12 tháng', description: 'Gói bảo vệ Network + Web Protection + Enhanced' },
+          { product_code: 'L009UiGS-RM', product_name: 'Router Mikrotik L009UiGS-RM', model: 'L009 Series', description: 'Router định tuyến hiệu năng cao 8 cổng Gigabit' },
+          { product_code: 'RG-NBS3100-24GT4SFP-V2', product_name: 'Switch RUIJIE REYEE RG-NBS3100-24GT4SFP-V2', model: '24 Port GbE + 4 SFP', description: 'Switch quản lý đám mây Layer 2 hiệu suất cao' },
+          { product_code: 'RG-ES216GC-V2', product_name: 'Switch RUIJIE REYEE RG-ES216GC-V2', model: '16 Port Gigabit', description: 'Switch chia mạng thông minh Ruijie' },
+          { product_code: 'RG-ES208GC', product_name: 'Switch RUIJIE REYEE RG-ES208GC', model: '8 Port Gigabit', description: 'Switch để bàn 8 cổng Gigabit' },
+          { product_code: 'RG-RAP2260(G)', product_name: 'Thiết bị phát Wifi Ruijie REEYE RG-RAP2260(G)', model: 'Wi-Fi 6 AX1800', description: 'Access Point gắn trần chuẩn Wi-Fi 6 tốc độ cao' },
+          { product_code: 'MINI-GBIC-LX-SM1310', product_name: 'Module quang SFP RUIJIE MINI-GBIC-LX-SM1310', model: '1.25G 1310nm 10km', description: 'Module quang SFP Single-mode 1.25Gbps' },
+          { product_code: 'MC220L', product_name: 'TP-Link MC220L Gigabit SFP Media Converter', model: 'Gigabit SFP', description: 'Bộ chuyển đổi quang điện Gigabit TP-Link' },
+          { product_code: 'CAP-QUANG-4FO', product_name: 'Cáp quang Single-mode 4FO Outdoor /Indoor', model: '4 Core Single-mode', description: 'Cáp quang bọc giáp kim loại chống gặm nhấm' },
+          { product_code: 'SC-LC-3M-DUPLEX', product_name: 'Dây nhảy quang SC-LC-3m Duplex', model: 'SC/UPC - LC/UPC 3M', description: 'Dây nhảy quang Single-mode sợi đôi' },
+          { product_code: 'ODF-24FO', product_name: 'Hộp phối quang 24FO', model: '24 Port Rackmount 19"', description: 'Hộp phối quang gắn tủ rack đầy đủ phụ kiện' },
+          { product_code: 'ODF-4FO', product_name: 'Hộp phối quang 4FO', model: '4 Port Wallmount', description: 'Hộp phối quang treo tường nhỏ gọn' },
+          { product_code: '1427071-6', product_name: 'Cáp mạng AMP CAT6 UTP (1427071-6)', model: 'Cat.6 UTP 305m', description: 'Thùng cáp mạng CommScope AMP chính hãng' },
+          { product_code: 'RJ45-CAT6', product_name: 'Đầu mạng RJ45 Cat.6', model: 'Cat6 Modular Plug', description: 'Bịch 100 hạt mạng RJ45 chân mạ vàng' },
+          { product_code: 'RACK-20U-D600', product_name: 'TỦ RACK 20U-D600 TMC', model: '20U Sâu 600mm', description: 'Tủ mạng rack server cửa lưới thông thoáng' },
+          { product_code: 'RACK-4U-D400', product_name: 'TỦ RACK 4U-D400 TMC', model: '4U Sâu 400mm', description: 'Tủ mạng treo tường mini 4U' },
+          { product_code: 'RG-POE-AT30', product_name: 'Nguồn PoE Ruijie RG-POE-AT30', model: '30W Gigabit PoE+', description: 'Adapter cấp nguồn PoE cho Wifi và Camera' }
+        ];
+        for (const p of defaultProducts) {
+          insertProd.run(p);
+        }
+        rows = db.prepare('SELECT * FROM products ORDER BY id DESC').all();
+      }
     }
     res.json({ success: true, data: rows });
   } catch (error) {
