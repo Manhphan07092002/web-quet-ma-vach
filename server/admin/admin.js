@@ -1,3 +1,12 @@
+// ===== BIẾN TOÀN CỤC HỆ THỐNG ADMIN =====
+var currentTab = 'dashboard';
+var chartTimeline = null;
+var chartCategories = null;
+var chartStaff = null;
+var chartOrders = null;
+var productSearchTimer = null;
+var orderSearchTimer = null;
+
 // ===== QUẢN LÝ GIAO DIỆN DARK / LIGHT MODE =====
 function initAdminTheme() {
   const savedTheme = localStorage.getItem('admin_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -28,7 +37,13 @@ function updateChartsTheme(theme) {
   const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
   const doughnutBorder = isDark ? '#131b2e' : '#ffffff';
 
-  [chartTimeline, chartStaff, chartOrders].forEach(chart => {
+  const lineAndBarCharts = [
+    typeof chartTimeline !== 'undefined' ? chartTimeline : null,
+    typeof chartStaff !== 'undefined' ? chartStaff : null,
+    typeof chartOrders !== 'undefined' ? chartOrders : null
+  ];
+
+  lineAndBarCharts.forEach(chart => {
     if (chart && chart.options && chart.options.scales) {
       if (chart.options.scales.x) {
         chart.options.scales.x.ticks = chart.options.scales.x.ticks || {};
@@ -44,9 +59,10 @@ function updateChartsTheme(theme) {
     }
   });
 
-  if (chartCategories && chartCategories.data && chartCategories.data.datasets[0]) {
+  if (typeof chartCategories !== 'undefined' && chartCategories && chartCategories.data && chartCategories.data.datasets && chartCategories.data.datasets[0]) {
     chartCategories.data.datasets[0].borderColor = doughnutBorder;
     if (chartCategories.options && chartCategories.options.plugins && chartCategories.options.plugins.legend) {
+      chartCategories.options.plugins.legend.labels = chartCategories.options.plugins.legend.labels || {};
       chartCategories.options.plugins.legend.labels.color = textColor;
     }
     chartCategories.update();
@@ -627,9 +643,6 @@ function initSSE() {
 }
 
 // ===== QUẢN LÝ TAB (DASHBOARD, ĐƠN HÀNG, LỊCH SỬ, SẢN PHẨM, NHÂN SỰ) =====
-let currentTab = 'dashboard';
-let productSearchTimer = null;
-let orderSearchTimer = null;
 const productTbody = document.getElementById('productTableBody');
 const orderTbody = document.getElementById('orderTableBody');
 const userTbody = document.getElementById('userTableBody');
@@ -657,11 +670,9 @@ function switchTab(tab) {
   }
 }
 
+window.switchTab = switchTab;
+
 // ===== DASHBOARD & CHART.JS INSTANCES =====
-let chartTimeline = null;
-let chartCategories = null;
-let chartStaff = null;
-let chartOrders = null;
 
 async function fetchDashboardStats() {
   try {
