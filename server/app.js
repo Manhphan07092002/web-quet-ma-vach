@@ -197,24 +197,33 @@ app.post("/api/scans", (req, res) => {
     }
 
     const cleanRaw = String(rawData).trim();
+    const cleanSerial = serialNumber ? String(serialNumber).trim() : cleanRaw;
 
-    // KIỂM TRA TRÙNG LẶP (DUPLICATE SCAN DETECTION):
-    // 1. Nếu đang quét theo đơn hàng: Kiểm tra xem mã này đã từng quét trong đơn hàng này chưa
-    // 2. Nếu quét tự do: Kiểm tra xem mã này đã tồn tại trong lịch sử quét chưa
+    // KIỂM TRA TRÙNG LẶP ĐA TẦNG (DUPLICATE SCAN DETECTION):
+    // 1. Nếu đang quét theo đơn hàng: Kiểm tra xem mã/SN này đã từng quét trong đơn hàng này chưa
+    // 2. Nếu quét tự do: Kiểm tra xem mã/SN này đã tồn tại trong lịch sử quét chưa
     let existing = null;
     if (orderCode) {
-      existing = db.prepare('SELECT * FROM scans WHERE TRIM(raw_data) = ? AND order_code = ?').get(cleanRaw, orderCode);
+      existing = db.prepare(`
+        SELECT * FROM scans 
+        WHERE (TRIM(raw_data) = ? OR (serial_number IS NOT NULL AND TRIM(serial_number) = ?))
+          AND order_code = ?
+      `).get(cleanRaw, cleanSerial, orderCode);
     } else {
-      existing = db.prepare('SELECT * FROM scans WHERE TRIM(raw_data) = ?').get(cleanRaw);
+      existing = db.prepare(`
+        SELECT * FROM scans 
+        WHERE TRIM(raw_data) = ? OR (serial_number IS NOT NULL AND TRIM(serial_number) = ?)
+      `).get(cleanRaw, cleanSerial);
     }
 
     if (existing) {
       const existTime = existing.scanned_at ? new Date(existing.scanned_at).toLocaleTimeString('vi-VN') : '';
       const existUser = existing.user_name || 'Nội bộ';
+      const existOrder = existing.order_code ? `trong đơn "${existing.order_code}"` : 'trong hệ thống';
       return res.status(409).json({
         success: false,
         duplicate: true,
-        message: `Mã "${cleanRaw}" đã được quét trước đó (${existTime} - ${existUser})! Hệ thống đã bỏ qua không lưu lại để tránh trùng lặp.`,
+        message: `Mã/Serial "${cleanSerial}" đã được quét trước đó ${existOrder} (${existTime} bởi ${existUser})! Hệ thống đã bỏ qua không lưu lại để tránh trùng lặp.`,
         data: existing
       });
     }
