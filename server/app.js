@@ -10,8 +10,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static(path.join(__dirname, "admin")));
 app.use('/uploads', express.static(path.join(__dirname, "uploads")));
+app.use('/client', express.static(path.join(__dirname, "public")));
+app.use('/scan', express.static(path.join(__dirname, "public")));
+app.use('/scanner', express.static(path.join(__dirname, "public")));
+app.use('/admin', express.static(path.join(__dirname, "admin")));
+app.use(express.static(path.join(__dirname, "admin")));
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, "uploads");
@@ -1339,8 +1343,38 @@ app.delete("/api/users/:id", requireRole(['admin']), (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3800;
+const https = require("https");
+const getCerts = require("./generate-cert");
 
+const PORT = process.env.PORT || 3800;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3831;
+
+// 1. Khởi động HTTP Server (Port 3800)
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Admin Server API chạy tại http://localhost:${PORT}`);
+  console.log(`🚀 [HTTP] Server đang chạy:`);
+  console.log(`   - 🖥️  Admin Web Dashboard: http://localhost:${PORT}`);
+  console.log(`   - 📱 Mobile Scanner Client: http://localhost:${PORT}/client`);
 });
+
+// 2. Khởi động HTTPS Server chuyên dụng cho Mobile Camera (Port 3831)
+(async () => {
+  try {
+    const certs = await getCerts();
+    
+    // HTTPS App chuyên phục vụ Mobile Client ở root '/'
+    const httpsApp = express();
+    httpsApp.use(cors());
+    httpsApp.use(express.json({ limit: '50mb' }));
+    httpsApp.use(express.urlencoded({ limit: '50mb', extended: true }));
+    httpsApp.use('/uploads', express.static(path.join(__dirname, "uploads")));
+    httpsApp.use('/admin', express.static(path.join(__dirname, "admin")));
+    httpsApp.use('/api', app); // Dùng chung toàn bộ route /api của backend
+    httpsApp.use(express.static(path.join(__dirname, "public")));
+
+    https.createServer(certs, httpsApp).listen(HTTPS_PORT, '0.0.0.0', () => {
+      console.log(`🔒 [HTTPS] Mobile Camera Scanner chạy tại https://localhost:${HTTPS_PORT}`);
+    });
+  } catch (err) {
+    console.error("⚠️ Không thể khởi động HTTPS server:", err);
+  }
+})();
