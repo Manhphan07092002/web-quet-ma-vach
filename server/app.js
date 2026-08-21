@@ -387,28 +387,92 @@ app.post("/api/scans/export", (req, res) => {
 
     if (ids && Array.isArray(ids) && ids.length > 0) {
       const placeholders = ids.map(() => '?').join(',');
-      rows = db.prepare(`SELECT * FROM scans WHERE id IN (${placeholders}) ORDER BY scanned_at DESC`).all(ids);
+      rows = db.prepare(`SELECT * FROM scans WHERE id IN (${placeholders}) ORDER BY product_name ASC, scanned_at DESC`).all(ids);
     } else {
-      rows = db.prepare(`SELECT * FROM scans ORDER BY scanned_at DESC`).all();
+      rows = db.prepare(`SELECT * FROM scans ORDER BY product_name ASC, scanned_at DESC`).all();
     }
 
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: "Không có dữ liệu để xuất" });
     }
 
-    // Format data for Excel
-    const excelData = rows.map(row => ({
-      "ID": row.id,
-      "Dữ liệu gốc (S/N)": row.raw_data,
-      "Loại mã": row.code_type || 'N/A',
-      "Mã sản phẩm": row.product_code || '',
-      "Tên sản phẩm": row.product_name || '',
-      "Thiết bị": row.device_id || '',
-      "Nhân viên": row.user_name || '',
-      "Thời gian quét": new Date(row.scanned_at).toLocaleString('vi-VN')
-    }));
+    // Nhóm các mã quét theo Sản phẩm (Product)
+    const productGroups = new Map();
+    rows.forEach(r => {
+      const pCode = r.product_code || '';
+      const pName = r.product_name || 'Khác / Chưa phân loại';
+      const key = `${pCode}___${pName}`;
+      if (!productGroups.has(key)) {
+        productGroups.set(key, { product_code: pCode, product_name: pName, scans: [] });
+      }
+      productGroups.get(key).scans.push(r);
+    });
 
-    const worksheet = xlsx.utils.json_to_sheet(excelData);
+    const headers = [
+      "STT",
+      "Mã sản phẩm",
+      "Tên sản phẩm",
+      "Tổng SL",
+      "Số Serial / IMEI (S/N)",
+      "Loại mã",
+      "Nhân viên quét",
+      "Thời gian quét",
+      "Đơn hàng"
+    ];
+
+    const aoaData = [headers];
+    const merges = [];
+    let currentExcelRow = 1; // Hàng dữ liệu đầu tiên sau tiêu đề (0-indexed)
+    let productIndex = 0;
+
+    for (const [_, group] of productGroups.entries()) {
+      productIndex++;
+      const scansCount = group.scans.length;
+      const startRow = currentExcelRow;
+
+      group.scans.forEach((scan, i) => {
+        const row = [
+          productIndex,
+          group.product_code || '',
+          group.product_name,
+          scansCount,
+          scan.raw_data || '',
+          scan.code_type || 'N/A',
+          scan.user_name || '',
+          scan.scanned_at ? new Date(scan.scanned_at).toLocaleString('vi-VN') : '',
+          scan.order_code || ''
+        ];
+        aoaData.push(row);
+        currentExcelRow++;
+      });
+
+      // Nếu sản phẩm có từ 2 số Serial (S/N) trở lên -> Gộp ô các cột thông tin sản phẩm
+      if (scansCount > 1) {
+        const endRow = startRow + scansCount - 1;
+        // Gộp STT (c: 0), Mã SP (c: 1), Tên SP (c: 2), Tổng SL (c: 3)
+        for (let col = 0; col <= 3; col++) {
+          merges.push({
+            s: { r: startRow, c: col },
+            e: { r: endRow, c: col }
+          });
+        }
+      }
+    }
+
+    const worksheet = xlsx.utils.aoa_to_sheet(aoaData);
+    worksheet['!merges'] = merges;
+    worksheet['!cols'] = [
+      { wch: 6 },   // STT
+      { wch: 18 },  // Mã sản phẩm
+      { wch: 38 },  // Tên sản phẩm
+      { wch: 10 },  // Tổng SL
+      { wch: 28 },  // S/N
+      { wch: 14 },  // Loại mã
+      { wch: 18 },  // Nhân viên
+      { wch: 22 },  // Thời gian quét
+      { wch: 16 }   // Đơn hàng
+    ];
+
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, "LichSuQuet");
 
@@ -418,7 +482,7 @@ app.post("/api/scans/export", (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);
   } catch (error) {
-    res.status(500).json({ success: false, message: "Lỗi xuất file", error: error.message });
+    res.status(500).json({ success: false, message: "Lỗi xuất file Excel", error: error.message });
   }
 });
 
@@ -809,9 +873,26 @@ app.get("/api/orders/:id/export", (req, res) => {
     if (!order) return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng" });
 
     const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id);
-    const scans = db.prepare('SELECT * FROM scans WHERE order_code = ?').all(order.order_code);
+    const scans = db.prepare('SELECT * FROM scans WHERE order_code = ? ORDER BY scanned_at ASC').all(order.order_code);
 
-    const excelData = items.map((item, idx) => {
+    const headers = [
+      "STT",
+      "Mã sản phẩm",
+      "Tên sản phẩm",
+      "ĐVT / Ghi chú",
+      "SL Yêu cầu",
+      "SL Thực tế đã quét",
+      "Tình trạng",
+      "Số Serial / IMEI đã quét (S/N)",
+      "Nhân viên quét",
+      "Thời gian quét"
+    ];
+
+    const aoaData = [headers];
+    const merges = [];
+    let currentExcelRow = 1;
+
+    items.forEach((item, idx) => {
       const matchingScans = scans.filter(s => 
         (s.product_code && s.product_code === item.product_code) ||
         (s.product_name && s.product_name === item.product_name)
@@ -821,18 +902,67 @@ app.get("/api/orders/:id/export", (req, res) => {
       if (scannedQty >= item.quantity_expected) statusText = "Đủ số lượng (Đạt)";
       else if (scannedQty > 0) statusText = `Thiếu ${item.quantity_expected - scannedQty}`;
 
-      return {
-        "STT": idx + 1,
-        "Mã sản phẩm": item.product_code,
-        "Tên sản phẩm": item.product_name,
-        "ĐVT/Ghi chú": item.notes || '',
-        "SL Yêu cầu": item.quantity_expected,
-        "SL Thực tế đã quét": scannedQty,
-        "Tình trạng": statusText
-      };
+      const startRow = currentExcelRow;
+
+      if (matchingScans.length === 0) {
+        aoaData.push([
+          idx + 1,
+          item.product_code || '',
+          item.product_name || '',
+          item.notes || '',
+          item.quantity_expected || 0,
+          0,
+          statusText,
+          '(Chưa quét S/N nào)',
+          '',
+          ''
+        ]);
+        currentExcelRow++;
+      } else {
+        matchingScans.forEach((scan) => {
+          aoaData.push([
+            idx + 1,
+            item.product_code || '',
+            item.product_name || '',
+            item.notes || '',
+            item.quantity_expected || 0,
+            scannedQty,
+            statusText,
+            scan.raw_data || '',
+            scan.user_name || '',
+            scan.scanned_at ? new Date(scan.scanned_at).toLocaleString('vi-VN') : ''
+          ]);
+          currentExcelRow++;
+        });
+
+        // Nếu sản phẩm có từ 2 số Serial (S/N) trở lên -> Gộp ô từ cột 0 đến 6
+        if (matchingScans.length > 1) {
+          const endRow = startRow + matchingScans.length - 1;
+          for (let col = 0; col <= 6; col++) {
+            merges.push({
+              s: { r: startRow, c: col },
+              e: { r: endRow, c: col }
+            });
+          }
+        }
+      }
     });
 
-    const worksheet = xlsx.utils.json_to_sheet(excelData);
+    const worksheet = xlsx.utils.aoa_to_sheet(aoaData);
+    worksheet['!merges'] = merges;
+    worksheet['!cols'] = [
+      { wch: 6 },   // STT
+      { wch: 18 },  // Mã sản phẩm
+      { wch: 38 },  // Tên sản phẩm
+      { wch: 15 },  // ĐVT / Ghi chú
+      { wch: 12 },  // SL Yêu cầu
+      { wch: 18 },  // SL Thực tế đã quét
+      { wch: 22 },  // Tình trạng
+      { wch: 28 },  // S/N
+      { wch: 18 },  // Nhân viên
+      { wch: 22 }   // Thời gian quét
+    ];
+
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, "KiemDemDonHang");
     const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
