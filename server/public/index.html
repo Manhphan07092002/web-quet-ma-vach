@@ -176,14 +176,19 @@
         </div>
       </div>
 
-      <!-- Result Card / Bottom Information Sheet -->
+      <!-- Result Card -->
       <div id="resultCard" class="result-card">
         <div class="result-header">
           <div class="result-header-title">
             <div class="pulse-dot"></div>
             <h3>Kết quả quét gần nhất</h3>
           </div>
-          <span id="codeType" class="code-badge">-</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span id="codeType" class="code-badge">-</span>
+            <button type="button" id="quickDeleteScanBtn" class="btn-quick-del" onclick="deleteCurrentScan()" style="display: none;" title="Xóa mã này nếu quét nhầm">
+              🗑️ Xóa
+            </button>
+          </div>
         </div>
 
         <div class="result-body">

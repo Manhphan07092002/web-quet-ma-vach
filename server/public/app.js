@@ -890,6 +890,9 @@ async function sendToServer(rawData, format, imageBase64 = null) {
         const quickBtn = document.getElementById('quickEditProdBtn');
         if (quickBtn) quickBtn.style.display = 'inline-flex';
 
+        const quickDelBtn = document.getElementById('quickDeleteScanBtn');
+        if (quickDelBtn) quickDelBtn.style.display = 'inline-flex';
+
         if (result.data.product_name) {
           productInfoEl.textContent = `${result.data.product_name} (${result.data.product_code || ''})`;
         } else {
@@ -897,13 +900,8 @@ async function sendToServer(rawData, format, imageBase64 = null) {
         }
       }
 
-      if (result.message === "Dữ liệu đã tồn tại") {
-        showResultStatus("⚠️ Dữ liệu mã này đã tồn tại trên máy chủ", "error");
-        playBeep('error');
-      } else {
-        showResultStatus("✅ Đã lưu thành công vào cơ sở dữ liệu", "success");
-        playBeep('success');
-      }
+      showResultStatus("✅ Đã lưu thành công vào cơ sở dữ liệu", "success");
+      playBeep('success');
       if (navigator.vibrate) navigator.vibrate(100);
 
       // Cập nhật widget tiến độ đơn hàng
@@ -916,9 +914,28 @@ async function sendToServer(rawData, format, imageBase64 = null) {
         syncOfflineQueue();
       }
     } else {
-      showResultStatus("❌ " + (result.message || "Lỗi lưu dữ liệu"), "error");
-      playBeep('error');
-      if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      if (result.duplicate || response.status === 409) {
+        showResultStatus(`⚠️ MÃ TRÙNG: Đã quét trước đó (Bỏ qua không lưu)`, "error");
+        playBeep('error');
+        if (navigator.vibrate) navigator.vibrate([150, 100, 150]);
+
+        const quickDelBtn = document.getElementById('quickDeleteScanBtn');
+        if (quickDelBtn) quickDelBtn.style.display = 'none';
+
+        Swal.fire({
+          toast: true,
+          position: 'top',
+          icon: 'warning',
+          title: '⚠️ Mã này đã được quét trước đó!',
+          text: result.message || 'Hệ thống đã tự động bỏ qua để tránh trùng lặp dữ liệu.',
+          timer: 3500,
+          showConfirmButton: false
+        });
+      } else {
+        showResultStatus("❌ " + (result.message || "Lỗi lưu dữ liệu"), "error");
+        playBeep('error');
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      }
     }
   } catch (err) {
     console.warn("Mất kết nối máy chủ, chuyển sang lưu Offline Queue:", err);
@@ -1464,11 +1481,18 @@ document.getElementById('historyBtn').addEventListener('click', async () => {
     const result = await res.json();
     if (!result.success) throw new Error(result.message);
     
-    const scans = result.data.slice(0, 50);
+    const scans = result.data.slice(0, 60);
     
-    let html = '<div style="max-height: 65vh; overflow-y: auto; text-align: left; padding: 2px;">';
+    let html = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px;">
+        <span style="font-size: 0.8rem; color: #64748b; font-weight: 700;">Tổng cộng: ${scans.length} mã gần nhất</span>
+        ${scans.length > 0 ? `<button onclick="clearAllClientScans()" style="padding: 4px 10px; background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">🗑️ Xóa tất cả</button>` : ''}
+      </div>
+      <div style="max-height: 65vh; overflow-y: auto; text-align: left; padding: 2px;">
+    `;
+
     if (scans.length === 0) {
-      html += '<p style="text-align:center; color:#94a3b8; padding:20px;">Chưa có dữ liệu quét nào.</p>';
+      html += '<p style="text-align:center; color:#94a3b8; padding:30px 20px;">Chưa có dữ liệu quét nào.</p>';
     } else {
       scans.forEach(scan => {
         const time = new Date(scan.scanned_at).toLocaleTimeString('vi-VN');
@@ -1479,21 +1503,28 @@ document.getElementById('historyBtn').addEventListener('click', async () => {
         const typeEscaped = (scan.code_type || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
         html += `
-          <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #ffffff; position: relative;">
+          <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: var(--card-bg, #ffffff); position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span style="font-size: 0.75rem; font-weight: 700; color: #4f46e5; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">${scan.code_type || 'BARCODE'}</span>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <span style="font-size: 0.75rem; font-weight: 700; color: #4f46e5; background: #eef2ff; padding: 2px 8px; border-radius: 6px;">${scan.code_type || 'BARCODE'}</span>
+                ${scan.order_code ? `<span style="font-size: 0.72rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 6px;">${scan.order_code}</span>` : ''}
+              </div>
               <span style="font-size: 0.75rem; color: #64748b;">${time}</span>
             </div>
-            <div style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: #0f172a; word-break: break-all; margin-bottom: 6px;">${scan.raw_data}</div>
+            <div style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: var(--text-main, #0f172a); word-break: break-all; margin-bottom: 6px;">${scan.raw_data}</div>
             <div style="font-size: 0.825rem; color: #475569; display: flex; flex-direction: column; gap: 2px;">
               <div><b>SP:</b> ${scan.product_name || '-'}</div>
               <div><b>Serial:</b> ${scan.serial_number || '-'}</div>
             </div>
-            <div style="margin-top: 8px; display: flex; gap: 6px; justify-content: flex-end;">
+            <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end; align-items: center;">
               ${scan.image_path ? `<button onclick="viewClientImage('${scan.image_path}')" style="padding: 4px 10px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">Xem ảnh</button>` : ''}
               <button onclick="editScan(${scan.id}, '${rawEscaped}', '${nameEscaped}', '${serialEscaped}', '${deviceEscaped}', '${typeEscaped}')" 
                       style="padding: 4px 12px; background: #4f46e5; color: white; border: none; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">
                 Sửa
+              </button>
+              <button onclick="deleteClientScan(${scan.id}, '${rawEscaped}')" 
+                      style="padding: 4px 10px; background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+                🗑️ Xóa
               </button>
             </div>
           </div>
@@ -1514,9 +1545,154 @@ document.getElementById('historyBtn').addEventListener('click', async () => {
     });
     
   } catch (err) {
-    Swal.fire('Lỗi', 'Không thể tải lịch sử', 'error');
+    Swal.fire('Lỗi', 'Không thể tải lịch sử: ' + err.message, 'error');
   }
 });
+
+window.deleteCurrentScan = async function() {
+  if (!window.currentScanId) {
+    Swal.fire('Thông báo', 'Không có mã quét nào gần nhất để xóa!', 'info');
+    return;
+  }
+
+  const result = await Swal.fire({
+    title: 'Xóa mã vừa quét?',
+    text: `Bạn có chắc muốn xóa mã này khỏi danh sách quét không?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Đúng, Xóa ngay',
+    cancelButtonText: 'Hủy'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/scans/${window.currentScanId}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      Swal.fire({
+        toast: true,
+        position: 'top',
+        icon: 'success',
+        title: 'Đã xóa mã vừa quét!',
+        showConfirmButton: false,
+        timer: 2000
+      });
+
+      // Reset thẻ kết quả
+      const delBtn = document.getElementById('quickDeleteScanBtn');
+      if (delBtn) delBtn.style.display = 'none';
+      const quickBtn = document.getElementById('quickEditProdBtn');
+      if (quickBtn) quickBtn.style.display = 'none';
+
+      window.currentScanId = null;
+      window.currentScanData = null;
+
+      rawDataEl.textContent = '-';
+      productInfoEl.textContent = '-';
+      serialNumberEl.textContent = '-';
+      codeTypeEl.textContent = '-';
+      showResultStatus("🗑️ Đã xóa mã quét vừa rồi.", "normal");
+
+      if (activeOrderCode) {
+        updateOrderProgressWidget(activeOrderCode);
+      }
+    } else {
+      Swal.fire('Lỗi', data.message || 'Không thể xóa mã quét!', 'error');
+    }
+  } catch (err) {
+    Swal.fire('Lỗi mạng', 'Không thể kết nối đến máy chủ để xóa!', 'error');
+  }
+};
+
+window.deleteClientScan = async function(id, rawData) {
+  const result = await Swal.fire({
+    title: 'Xóa mã quét này?',
+    html: `Bạn có chắc chắn muốn xóa mã <b style="font-family:monospace; color:#ef4444;">${rawData}</b> không?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Xóa',
+    cancelButtonText: 'Hủy'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/scans/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      Swal.fire({
+        toast: true,
+        position: 'top',
+        icon: 'success',
+        title: 'Đã xóa thành công!',
+        showConfirmButton: false,
+        timer: 1800
+      });
+
+      if (window.currentScanId === id) {
+        window.currentScanId = null;
+        const delBtn = document.getElementById('quickDeleteScanBtn');
+        if (delBtn) delBtn.style.display = 'none';
+      }
+
+      if (activeOrderCode) {
+        updateOrderProgressWidget(activeOrderCode);
+      }
+
+      // Mở lại modal lịch sử đã cập nhật
+      const historyBtn = document.getElementById('historyBtn');
+      if (historyBtn) historyBtn.click();
+    } else {
+      Swal.fire('Lỗi', data.message || 'Không thể xóa mã quét', 'error');
+    }
+  } catch (e) {
+    Swal.fire('Lỗi mạng', 'Không thể kết nối đến máy chủ để xóa', 'error');
+  }
+};
+
+window.clearAllClientScans = async function() {
+  const result = await Swal.fire({
+    title: 'Xóa toàn bộ lịch sử quét?',
+    text: 'Hành động này sẽ xóa toàn bộ các mã đã quét trong hệ thống. Bạn có chắc chắn không?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Đúng, xóa tất cả',
+    cancelButtonText: 'Hủy'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await authFetch('/api/scans', { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      Swal.fire({
+        toast: true,
+        position: 'top',
+        icon: 'success',
+        title: 'Đã xóa toàn bộ lịch sử!',
+        showConfirmButton: false,
+        timer: 2000
+      });
+      if (activeOrderCode) {
+        updateOrderProgressWidget(activeOrderCode);
+      }
+      const historyBtn = document.getElementById('historyBtn');
+      if (historyBtn) historyBtn.click();
+    } else {
+      Swal.fire('Lỗi', data.message || 'Không thể xóa lịch sử', 'error');
+    }
+  } catch (e) {
+    Swal.fire('Lỗi mạng', 'Không thể kết nối máy chủ', 'error');
+  }
+};
 
 window.editScan = async function(id, rawData, productName, serialNumber, deviceId, codeType) {
   Swal.close();

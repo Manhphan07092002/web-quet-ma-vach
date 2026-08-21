@@ -174,6 +174,29 @@ app.post("/api/scans", (req, res) => {
         message: "Thiếu dữ liệu bắt buộc"
       });
     }
+
+    const cleanRaw = String(rawData).trim();
+
+    // KIỂM TRA TRÙNG LẶP (DUPLICATE SCAN DETECTION):
+    // 1. Nếu đang quét theo đơn hàng: Kiểm tra xem mã này đã từng quét trong đơn hàng này chưa
+    // 2. Nếu quét tự do: Kiểm tra xem mã này đã tồn tại trong lịch sử quét chưa
+    let existing = null;
+    if (orderCode) {
+      existing = db.prepare('SELECT * FROM scans WHERE TRIM(raw_data) = ? AND order_code = ?').get(cleanRaw, orderCode);
+    } else {
+      existing = db.prepare('SELECT * FROM scans WHERE TRIM(raw_data) = ?').get(cleanRaw);
+    }
+
+    if (existing) {
+      const existTime = existing.scanned_at ? new Date(existing.scanned_at).toLocaleTimeString('vi-VN') : '';
+      const existUser = existing.user_name || 'Nội bộ';
+      return res.status(409).json({
+        success: false,
+        duplicate: true,
+        message: `Mã "${cleanRaw}" đã được quét trước đó (${existTime} - ${existUser})! Hệ thống đã bỏ qua không lưu lại để tránh trùng lặp.`,
+        data: existing
+      });
+    }
     
     let imagePath = null;
     if (imageBase64) {
@@ -213,7 +236,7 @@ app.post("/api/scans", (req, res) => {
     res.json({ success: true, message: "Đã lưu dữ liệu quét", data: newRecord });
   } catch (error) {
     if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
-      return res.json({ success: true, message: "Dữ liệu đã tồn tại" });
+      return res.status(409).json({ success: false, duplicate: true, message: "Dữ liệu mã này đã tồn tại trên hệ thống!" });
     }
 
     res.status(500).json({
@@ -221,6 +244,23 @@ app.post("/api/scans", (req, res) => {
       message: "Lỗi server",
       error: error.message
     });
+  }
+});
+
+// Xóa 1 mã quét cụ thể (Client & Admin)
+app.delete("/api/scans/:id", (req, res) => {
+  try {
+    const id = req.params.id;
+    const scan = db.prepare('SELECT * FROM scans WHERE id = ?').get(id);
+    if (!scan) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy mã quét" });
+    }
+
+    db.prepare('DELETE FROM scans WHERE id = ?').run(id);
+    broadcastScanEvent("scan_deleted", { ids: [parseInt(id)] });
+    res.json({ success: true, message: "Đã xóa mã quét thành công", data: scan });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Lỗi xóa mã quét", error: error.message });
   }
 });
 

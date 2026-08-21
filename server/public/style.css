@@ -877,6 +877,27 @@ body {
   font-family: var(--font-mono);
 }
 
+.btn-quick-del {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--danger-light);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.btn-quick-del:active {
+  transform: scale(0.95);
+  background: rgba(239, 68, 68, 0.2);
+}
+
 .result-body {
   display: flex;
   flex-direction: column;
