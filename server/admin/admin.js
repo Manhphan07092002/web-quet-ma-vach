@@ -1297,7 +1297,8 @@ async function fetchProducts(searchQuery = '') {
               <td>${prod.model || '-'}</td>
               <td style="color: var(--text-muted); max-width: 250px;">${prod.description || '-'}</td>
               <td>${createdDate}</td>
-              <td style="display: flex; gap: 6px;">
+              <td style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px; background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700;" onclick="printProductLabel('${codeEsc}', '${nameEsc}', '${modelEsc}')" title="In tem mã vạch / QR">🏷️ In Tem</button>
                 <button class="btn btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="editProduct(${prod.id}, '${codeEsc}', '${nameEsc}', '${modelEsc}', '${descEsc}')">Sửa</button>
                 <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px;" onclick="deleteProduct(${prod.id}, '${nameEsc}')">Xóa</button>
               </td>
@@ -1625,9 +1626,10 @@ function renderOrderTable(orders) {
         <td><span class="status-badge ${statusClass}">${statusText}</span></td>
         <td>${createdDate}</td>
         <td style="display: flex; gap: 6px; flex-wrap: wrap;">
-          <button class="btn btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="viewOrderDetail(${order.id})">🔍 Tiến độ</button>
+          <button class="btn btn-primary" style="padding: 4px 8px; font-size: 12px;" onclick="viewOrderDetail(${order.id})">🔍 Tiến độ</button>
           <button class="btn btn-warning" style="padding: 4px 8px; font-size: 12px; background: #f59e0b; color: white;" onclick="showEditOrderModal(${order.id})" title="Chỉnh sửa đơn hàng">✏️ Sửa</button>
           <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px;" onclick="exportOrder(${order.id})" title="Xuất biên bản Excel">📥 Excel</button>
+          <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px; background: #6366f1; color: white; border: none; font-weight: 600;" onclick="printOrderHandoverReport(${order.id})" title="In Biên bản bàn giao & kiểm đếm A4">🖨️ In Biên Bản</button>
           <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" onclick="deleteOrder(${order.id}, '${order.order_code}')">Xóa</button>
         </td>
       </tr>
@@ -2296,6 +2298,363 @@ async function deleteOrder(orderId, orderCode) {
     }
   }
 }
+
+// ===== IN TEM NHÃN MÃ VẠCH / QR CHO SẢN PHẨM =====
+async function printProductLabel(code, name, model) {
+  const { value: printConfig } = await Swal.fire({
+    title: 'In Tem Nhãn Sản Phẩm',
+    html: `
+      <div style="text-align: left; font-size: 13px;">
+        <div style="background: rgba(79, 70, 229, 0.08); padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(79, 70, 229, 0.2);">
+          <div style="font-weight: 800; color: var(--primary); font-size: 14px;">${name}</div>
+          <div style="font-family: monospace; font-size: 12px; color: var(--text-muted); margin-top: 2px;">Mã: <b>${code}</b> ${model ? `| Model: ${model}` : ''}</div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-weight: 700; margin-bottom: 4px;">Định dạng tem</label>
+          <select id="swal-label-type" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+            <option value="barcode">Mã vạch 1D (Code 128)</option>
+            <option value="qr">Mã vuông 2D (QR Code)</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-weight: 700; margin-bottom: 4px;">Khổ giấy in</label>
+          <select id="swal-label-size" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+            <option value="thermal-50x30">Tem nhiệt 50x30 mm (Máy in tem Xprinter, TSC)</option>
+            <option value="thermal-35x22">Tem nhiệt nhỏ 35x22 mm</option>
+            <option value="a4-grid">Khổ giấy A4 (Nhiều tem trên trang)</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-weight: 700; margin-bottom: 4px;">Số lượng tem cần in</label>
+          <input id="swal-label-qty" type="number" min="1" max="500" value="1" style="width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;">
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '🖨️ Xem & In Tem',
+    cancelButtonText: 'Hủy',
+    confirmButtonColor: '#4f46e5',
+    preConfirm: () => {
+      const type = document.getElementById('swal-label-type').value;
+      const size = document.getElementById('swal-label-size').value;
+      const qty = parseInt(document.getElementById('swal-label-qty').value) || 1;
+      return { type, size, qty };
+    }
+  });
+
+  if (!printConfig) return;
+
+  const { type, size, qty } = printConfig;
+
+  const printWindow = window.open('', '_blank', 'width=850,height=700');
+  if (!printWindow) {
+    Swal.fire('Lỗi', 'Trình duyệt đã chặn cửa sổ pop-up. Vui lòng cho phép pop-up để in tem!', 'error');
+    return;
+  }
+
+  let labelElements = '';
+  for (let i = 0; i < qty; i++) {
+    labelElements += `
+      <div class="label-card ${size}">
+        <div class="label-header">${name}</div>
+        <div class="label-code-wrapper">
+          ${type === 'barcode' ? `<svg id="barcode-${i}"></svg>` : `<div id="qrcode-${i}" class="qr-box"></div>`}
+        </div>
+        <div class="label-footer">Mã: ${code} ${model ? `• ${model}` : ''}</div>
+      </div>
+    `;
+  }
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>In Tem: ${code}</title>
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #f8fafc; padding: 20px; text-align: center; }
+        .print-actions { margin-bottom: 20px; }
+        .btn-print { background: #4f46e5; color: white; border: none; padding: 10px 24px; font-size: 14px; font-weight: 700; border-radius: 6px; cursor: pointer; }
+        .labels-container { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        
+        .label-card {
+          background: white;
+          border: 1px dashed #cbd5e1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 4px 6px;
+          page-break-inside: avoid;
+        }
+
+        .label-card.thermal-50x30 {
+          width: 50mm;
+          height: 30mm;
+          padding: 2mm;
+        }
+
+        .label-card.thermal-35x22 {
+          width: 35mm;
+          height: 22mm;
+          padding: 1.5mm;
+        }
+
+        .label-card.a4-grid {
+          width: 65mm;
+          height: 38mm;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          margin: 4px;
+        }
+
+        .label-header {
+          font-size: 8.5pt;
+          font-weight: 800;
+          color: #000;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          text-align: center;
+          line-height: 1.1;
+        }
+
+        .label-code-wrapper {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: 1mm 0;
+          max-width: 100%;
+        }
+
+        .label-code-wrapper svg {
+          max-width: 100%;
+          height: auto;
+        }
+
+        .qr-box img {
+          width: 18mm !important;
+          height: 18mm !important;
+          margin: 0 auto;
+        }
+
+        .label-footer {
+          font-size: 7pt;
+          font-family: monospace;
+          color: #000;
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          text-align: center;
+        }
+
+        @media print {
+          body { background: white; padding: 0; }
+          .print-actions { display: none !important; }
+          .label-card { border: none !important; margin: 0 !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-actions">
+        <button class="btn-print" onclick="window.print()">🖨️ Bấm Vào Đây Để In</button>
+      </div>
+      <div class="labels-container">
+        ${labelElements}
+      </div>
+
+      <script>
+        window.onload = function() {
+          const qty = ${qty};
+          const type = "${type}";
+          const code = "${code.replace(/"/g, '\\"')}";
+
+          for (let i = 0; i < qty; i++) {
+            if (type === 'barcode') {
+              try {
+                JsBarcode("#barcode-" + i, code, {
+                  format: "CODE128",
+                  width: 1.5,
+                  height: 35,
+                  displayValue: false,
+                  margin: 0
+                });
+              } catch(e) { console.error(e); }
+            } else {
+              try {
+                new QRCode(document.getElementById("qrcode-" + i), {
+                  text: code,
+                  width: 70,
+                  height: 70,
+                  correctLevel: QRCode.CorrectLevel.M
+                });
+              } catch(e) { console.error(e); }
+            }
+          }
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
+window.printProductLabel = printProductLabel;
+
+// ===== IN BIÊN BẢN KIỂM ĐẾM & BÀN GIAO THIẾT BỊ A4 =====
+async function printOrderHandoverReport(orderId) {
+  try {
+    const res = await fetch(`/api/orders/${orderId}`);
+    const result = await res.json();
+    if (!result.success) throw new Error(result.message);
+
+    const order = result.data;
+    const items = order.items || [];
+    
+    // Lấy toàn bộ mã quét của đơn này
+    const scansRes = await fetch('/api/scans');
+    const scansResult = await scansRes.json();
+    const allScans = scansResult.success ? (scansResult.data || []) : [];
+    const orderScans = allScans.filter(s => s.order_code === order.order_code);
+
+    const printWindow = window.open('', '_blank', 'width=950,height=800');
+    if (!printWindow) {
+      Swal.fire('Lỗi', 'Vui lòng cho phép pop-up để in biên bản!', 'error');
+      return;
+    }
+
+    const rowsHtml = items.map((it, idx) => {
+      const matchingScans = orderScans.filter(s => 
+        (s.product_code && s.product_code === it.product_code) ||
+        (s.product_name && s.product_name === it.product_name)
+      );
+      const serialList = matchingScans.map(s => s.raw_data).join(', ') || 'Chưa có S/N';
+      const isDone = it.quantity_scanned >= it.quantity_expected;
+      const statusText = isDone ? 'Đạt' : `Thiếu ${it.quantity_expected - it.quantity_scanned}`;
+
+      return `
+        <tr>
+          <td style="text-align: center;">${idx + 1}</td>
+          <td style="font-family: monospace; font-weight: 700;">${it.product_code}</td>
+          <td style="font-weight: 600;">${it.product_name}</td>
+          <td style="text-align: center;">${it.notes || 'Cái'}</td>
+          <td style="text-align: center; font-weight: 700;">${it.quantity_expected}</td>
+          <td style="text-align: center; font-weight: 700; color: ${isDone ? '#059669' : '#dc2626'};">${it.quantity_scanned}</td>
+          <td style="text-align: center; font-weight: 700;">${statusText}</td>
+          <td style="font-family: monospace; font-size: 11px;">${serialList}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const now = new Date();
+    const currentDateStr = `Ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Biên bản bàn giao - ${order.order_code}</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: "Times New Roman", Times, serif; padding: 30px; background: #fff; color: #000; line-height: 1.4; }
+          .header-nation { text-align: center; margin-bottom: 20px; }
+          .header-nation h4 { font-size: 13pt; text-transform: uppercase; font-weight: 700; margin-bottom: 2px; }
+          .header-nation h5 { font-size: 12pt; font-weight: 700; text-decoration: underline; }
+          .doc-title { text-align: center; margin: 25px 0 15px 0; }
+          .doc-title h2 { font-size: 16pt; font-weight: 800; text-transform: uppercase; }
+          .doc-title p { font-size: 11pt; font-style: italic; color: #444; }
+          .order-info { margin-bottom: 18px; font-size: 12pt; }
+          .order-info-row { margin-bottom: 6px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11pt; }
+          th, td { border: 1px solid #000; padding: 6px 8px; vertical-align: middle; }
+          th { background: #f2f2f2; font-weight: 700; text-align: center; }
+          .signatures { display: flex; justify-content: space-between; margin-top: 30px; text-align: center; page-break-inside: avoid; }
+          .sign-box { width: 30%; }
+          .sign-title { font-weight: 700; font-size: 12pt; margin-bottom: 4px; }
+          .sign-sub { font-style: italic; font-size: 10.5pt; color: #555; margin-bottom: 60px; }
+          .btn-print { background: #4f46e5; color: white; border: none; padding: 10px 24px; font-size: 14px; font-weight: 700; border-radius: 6px; cursor: pointer; margin-bottom: 20px; }
+          @media print {
+            .btn-print { display: none !important; }
+            body { padding: 15mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div style="text-align: center;">
+          <button class="btn-print" onclick="window.print()">🖨️ Bấm Vào Đây Để In Biên Bản (A4)</button>
+        </div>
+
+        <div class="header-nation">
+          <h4>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h4>
+          <h5>Độc lập - Tự do - Hạnh phúc</h5>
+        </div>
+
+        <div class="doc-title">
+          <h2>BIÊN BẢN KIỂM ĐẾM & BÀN GIAO THIẾT BỊ</h2>
+          <p>Mã biên bản: ${order.order_code} • ${currentDateStr}</p>
+        </div>
+
+        <div class="order-info">
+          <div class="order-info-row">• <b>Đơn hàng / Dự án:</b> ${order.order_name}</div>
+          <div class="order-info-row">• <b>Đơn vị nhận / Khách hàng:</b> ${order.customer_name || 'Nội bộ'}</div>
+          <div class="order-info-row">• <b>Ghi chú / Hợp đồng:</b> ${order.notes || 'Không có'}</div>
+          <div class="order-info-row">• <b>Tiến độ kiểm đếm:</b> ${order.percent}% (Đã kiểm: ${order.total_scanned}/${order.total_expected} thiết bị)</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th width="40">STT</th>
+              <th width="110">Mã sản phẩm</th>
+              <th>Tên hàng hóa - Quy cách</th>
+              <th width="60">ĐVT</th>
+              <th width="65">SL Y/C</th>
+              <th width="65">SL Thực tế</th>
+              <th width="80">Tình trạng</th>
+              <th>Danh sách Serial / IMEI bàn giao</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div style="font-size: 12pt; margin-bottom: 20px;">
+          <i>* Hai bên đã cùng nhau kiểm tra, đối chiếu số lượng và số Serial/IMEI thực tế của toàn bộ hàng hóa nêu trên.</i>
+        </div>
+
+        <div class="signatures">
+          <div class="sign-box">
+            <div class="sign-title">NGƯỜI LẬP BIÊN BẢN</div>
+            <div class="sign-sub">(Ký & ghi rõ họ tên)</div>
+          </div>
+          <div class="sign-box">
+            <div class="sign-title">ĐẠI DIỆN BÊN GIAO</div>
+            <div class="sign-sub">(Ký & ghi rõ họ tên)</div>
+          </div>
+          <div class="sign-box">
+            <div class="sign-title">ĐẠI DIỆN BÊN NHẬN</div>
+            <div class="sign-sub">(Ký & ghi rõ họ tên)</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  } catch (err) {
+    Swal.fire('Lỗi', 'Không thể tạo biên bản in: ' + err.message, 'error');
+  }
+}
+
+window.printOrderHandoverReport = printOrderHandoverReport;
 
 document.addEventListener('DOMContentLoaded', () => {
   const selectAll = document.getElementById('selectAll');
