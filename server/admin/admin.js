@@ -1,3 +1,61 @@
+// ===== QUẢN LÝ GIAO DIỆN DARK / LIGHT MODE =====
+function initAdminTheme() {
+  const savedTheme = localStorage.getItem('admin_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyAdminTheme(savedTheme);
+}
+
+function applyAdminTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('admin_theme', theme);
+  const icon = document.getElementById('adminThemeIcon');
+  const text = document.getElementById('adminThemeText');
+  if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+  if (text) text.textContent = theme === 'dark' ? 'Chế độ Sáng' : 'Chế độ Tối';
+
+  // Đồng bộ màu đường lưới và chữ trên Chart.js
+  updateChartsTheme(theme);
+}
+
+function toggleAdminTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  applyAdminTheme(newTheme);
+}
+
+function updateChartsTheme(theme) {
+  const isDark = theme === 'dark';
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
+  const doughnutBorder = isDark ? '#131b2e' : '#ffffff';
+
+  [chartTimeline, chartStaff, chartOrders].forEach(chart => {
+    if (chart && chart.options && chart.options.scales) {
+      if (chart.options.scales.x) {
+        chart.options.scales.x.ticks = chart.options.scales.x.ticks || {};
+        chart.options.scales.x.ticks.color = textColor;
+        if (chart.options.scales.x.grid) chart.options.scales.x.grid.color = gridColor;
+      }
+      if (chart.options.scales.y) {
+        chart.options.scales.y.ticks = chart.options.scales.y.ticks || {};
+        chart.options.scales.y.ticks.color = textColor;
+        if (chart.options.scales.y.grid) chart.options.scales.y.grid.color = gridColor;
+      }
+      chart.update();
+    }
+  });
+
+  if (chartCategories && chartCategories.data && chartCategories.data.datasets[0]) {
+    chartCategories.data.datasets[0].borderColor = doughnutBorder;
+    if (chartCategories.options && chartCategories.options.plugins && chartCategories.options.plugins.legend) {
+      chartCategories.options.plugins.legend.labels.color = textColor;
+    }
+    chartCategories.update();
+  }
+}
+
+// Khởi chạy theme ngay khi nạp script
+initAdminTheme();
+
 // ===== KIỂM TRA ĐĂNG NHẬP & PHÂN QUYỀN (RBAC AUTH GUARD) =====
 function getAdminUser() {
   try {

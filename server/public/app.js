@@ -1,3 +1,25 @@
+// ===== QUẢN LÝ GIAO DIỆN DARK / LIGHT MODE (MOBILE CLIENT) =====
+function initMobileTheme() {
+  const savedTheme = localStorage.getItem('mobile_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  applyMobileTheme(savedTheme);
+}
+
+function applyMobileTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('mobile_theme', theme);
+  const icon = document.getElementById('clientThemeIcon');
+  if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+function toggleClientTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  applyMobileTheme(newTheme);
+}
+
+window.toggleClientTheme = toggleClientTheme;
+initMobileTheme();
+
 const readerEl = document.getElementById("reader");
 const videoContainer = document.querySelector(".video-container");
 const resultCard = document.getElementById("resultCard");
