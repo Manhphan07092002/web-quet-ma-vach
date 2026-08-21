@@ -1986,6 +1986,219 @@ async function showCreateOrderModal() {
   }
 }
 
+// ===== NHẬP ĐƠN HÀNG HÀNG LOẠT TỪ FILE EXCEL =====
+function downloadOrderExcelTemplate() {
+  const headers = ["Mã sản phẩm", "Tên sản phẩm", "Số lượng", "Ghi chú / ĐVT"];
+  const rows = [
+    headers,
+    ["SP-1001", "Cáp sạc Type-C Anker 60W", 10, "Cái"],
+    ["SP-1002", "Củ sạc nhanh Ugreen 65W GaN", 5, "Cái"],
+    ["SP-1003", "Bộ chuyển đổi HDMI 4K Ugreen", 8, "Cái"],
+    ["SP-1004", "Chuột không dây Logitech M331", 15, "Hộp"]
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 18 }, { wch: 35 }, { wch: 12 }, { wch: 18 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "MauDonHang");
+  XLSX.writeFile(wb, "Mau_nhap_don_hang.xlsx");
+}
+
+window.downloadOrderExcelTemplate = downloadOrderExcelTemplate;
+
+async function showImportOrderModal() {
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const defaultOrderCode = `DH-${today}-01`;
+  let parsedItems = [];
+
+  const { value: formValues } = await Swal.fire({
+    title: 'Nhập Đơn Hàng Từ Excel',
+    width: '650px',
+    html: `
+      <style>
+        .import-order-form { text-align: left; font-size: 13px; }
+        .import-order-form label { display: block; font-weight: 700; margin-bottom: 4px; color: #334155; }
+        .import-order-form input { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 10px; font-family: inherit; font-size: 13px; }
+        .file-drop-zone { border: 2px dashed #6366f1; background: rgba(99, 102, 241, 0.05); padding: 18px; border-radius: 10px; text-align: center; cursor: pointer; margin-bottom: 12px; }
+        .file-drop-zone:hover { background: rgba(99, 102, 241, 0.1); }
+      </style>
+      <div class="import-order-form">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 12px; color: #64748b;">Điền thông tin đơn hàng và tải lên file Excel (.xlsx, .xls)</span>
+          <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="downloadOrderExcelTemplate()">📄 Tải file Excel mẫu</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label>Mã đơn hàng *</label>
+            <input id="swal-imp-code" value="${defaultOrderCode}" placeholder="Ví dụ: DH-DUAN-01">
+          </div>
+          <div>
+            <label>Tên đơn hàng / Dự án *</label>
+            <input id="swal-imp-name" placeholder="Ví dụ: Xuất kho tháng 9">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label>Khách hàng / Đơn vị nhận</label>
+            <input id="swal-imp-customer" placeholder="Ví dụ: Công ty Cổ phần ABC">
+          </div>
+          <div>
+            <label>Ghi chú / Hợp đồng</label>
+            <input id="swal-imp-notes" placeholder="Ví dụ: HĐ số 128/2026">
+          </div>
+        </div>
+
+        <label>Chọn file Excel danh sách sản phẩm *</label>
+        <div class="file-drop-zone" onclick="document.getElementById('swal-order-excel-file').click()">
+          <div style="font-size: 24px; margin-bottom: 4px;">📂</div>
+          <div style="font-weight: 700; color: #4f46e5;" id="fileLabelTxt">Bấm vào đây để chọn file Excel (.xlsx, .xls)</div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Hỗ trợ cột: Mã sản phẩm, Tên sản phẩm, Số lượng, Ghi chú</div>
+          <input type="file" id="swal-order-excel-file" accept=".xlsx, .xls, .csv" style="display: none;">
+        </div>
+
+        <div id="excelPreviewContainer" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; max-height: 160px; overflow-y: auto;">
+          <div style="font-weight: 700; font-size: 12px; margin-bottom: 6px; color: #059669;" id="excelPreviewSummary"></div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <thead>
+              <tr style="background: #e2e8f0; text-align: left;">
+                <th style="padding: 4px;">Mã SP</th>
+                <th style="padding: 4px;">Tên SP</th>
+                <th style="padding: 4px; text-align: center;">SL</th>
+                <th style="padding: 4px;">Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody id="excelPreviewTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    `,
+    didOpen: () => {
+      const fileInput = document.getElementById('swal-order-excel-file');
+      const fileLabel = document.getElementById('fileLabelTxt');
+      const previewContainer = document.getElementById('excelPreviewContainer');
+      const previewSummary = document.getElementById('excelPreviewSummary');
+      const previewTbody = document.getElementById('excelPreviewTbody');
+
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        fileLabel.innerHTML = `📄 <b>${file.name}</b> (${Math.round(file.size / 1024)} KB)`;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[firstSheet];
+            const jsonRows = XLSX.utils.sheet_to_json(sheet);
+
+            if (!jsonRows || jsonRows.length === 0) {
+              Swal.showValidationMessage('File Excel không có dữ liệu!');
+              return;
+            }
+
+            parsedItems = [];
+            jsonRows.forEach(row => {
+              const code = row['Mã sản phẩm'] || row['Mã SP'] || row['Ma_SP'] || row['product_code'] || row['SKU'] || '';
+              const name = row['Tên sản phẩm'] || row['Tên SP'] || row['Ten_SP'] || row['product_name'] || row['Tên hàng'] || '';
+              const qty = row['Số lượng'] || row['So_Luong'] || row['SL'] || row['quantity'] || 1;
+              const notes = row['Ghi chú'] || row['Ghi_Chu'] || row['notes'] || row['ĐVT'] || row['Đơn vị tính'] || '';
+
+              if (code || name) {
+                parsedItems.push({
+                  product_code: String(code).trim(),
+                  product_name: String(name || code).trim(),
+                  quantity_expected: parseInt(qty) || 1,
+                  notes: String(notes).trim()
+                });
+              }
+            });
+
+            if (parsedItems.length === 0) {
+              Swal.showValidationMessage('Không tìm thấy dòng sản phẩm hợp lệ trong file!');
+              return;
+            }
+
+            previewSummary.textContent = `✅ Đã đọc được ${parsedItems.length} mặt hàng từ file Excel`;
+            previewTbody.innerHTML = parsedItems.map(it => `
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 3px; font-family: monospace; font-weight: 700;">${it.product_code || '-'}</td>
+                <td style="padding: 3px;">${it.product_name}</td>
+                <td style="padding: 3px; text-align: center; font-weight: 700;">${it.quantity_expected}</td>
+                <td style="padding: 3px; color: #64748b;">${it.notes || '-'}</td>
+              </tr>
+            `).join('');
+
+            previewContainer.style.display = 'block';
+          } catch(err) {
+            Swal.showValidationMessage('Lỗi đọc file Excel: ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    },
+    showCancelButton: true,
+    confirmButtonText: '🚀 Tạo Đơn Hàng Ngay',
+    cancelButtonText: 'Hủy',
+    confirmButtonColor: '#4f46e5',
+    preConfirm: () => {
+      const code = document.getElementById('swal-imp-code').value.trim();
+      const name = document.getElementById('swal-imp-name').value.trim();
+      const customer = document.getElementById('swal-imp-customer').value.trim();
+      const notes = document.getElementById('swal-imp-notes').value.trim();
+
+      if (!code || !name) {
+        Swal.showValidationMessage('Vui lòng nhập đầy đủ Mã và Tên đơn hàng!');
+        return false;
+      }
+
+      if (!parsedItems || parsedItems.length === 0) {
+        Swal.showValidationMessage('Vui lòng chọn file Excel có chứa danh sách sản phẩm!');
+        return false;
+      }
+
+      return {
+        orderCode: code,
+        orderName: name,
+        customerName: customer,
+        notes: notes,
+        items: parsedItems
+      };
+    }
+  });
+
+  if (formValues) {
+    try {
+      const res = await fetch('/api/orders/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formValues)
+      });
+      const data = await res.json();
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Thành công!',
+          text: data.message,
+          timer: 2500,
+          showConfirmButton: false
+        });
+        fetchOrders();
+      } else {
+        Swal.fire('Lỗi', data.message, 'error');
+      }
+    } catch(err) {
+      Swal.fire('Lỗi', 'Không thể kết nối đến máy chủ: ' + err.message, 'error');
+    }
+  }
+}
+
+window.showImportOrderModal = showImportOrderModal;
+
 async function showEditOrderModal(orderId) {
   let orderData = null;
   let productsList = [];

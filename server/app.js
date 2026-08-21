@@ -1015,6 +1015,66 @@ app.get("/api/orders/:id/export", (req, res) => {
   }
 });
 
+// POST /api/orders/import - Nhập đơn hàng từ danh sách Excel
+app.post("/api/orders/import", (req, res) => {
+  try {
+    const { orderCode, orderName, customerName, notes, items } = req.body;
+
+    if (!orderCode || !orderName || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: "Thiếu mã đơn, tên đơn hoặc danh sách sản phẩm" });
+    }
+
+    const cleanOrderCode = String(orderCode).trim();
+    const cleanOrderName = String(orderName).trim();
+    const cleanCustomer = customerName ? String(customerName).trim() : null;
+    const cleanNotes = notes ? String(notes).trim() : null;
+
+    const existing = db.prepare('SELECT id FROM orders WHERE order_code = ?').get(cleanOrderCode);
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Mã đơn hàng "${cleanOrderCode}" đã tồn tại trên hệ thống!` });
+    }
+
+    const createOrderWithItems = db.transaction(() => {
+      const orderResult = db.prepare(`
+        INSERT INTO orders (order_code, order_name, customer_name, notes, status)
+        VALUES (?, ?, ?, ?, 'in_progress')
+      `).run(cleanOrderCode, cleanOrderName, cleanCustomer, cleanNotes);
+
+      const orderId = orderResult.lastInsertRowid;
+      const insertItemStmt = db.prepare(`
+        INSERT INTO order_items (order_id, product_code, product_name, quantity_expected, notes)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+
+      let validItemsCount = 0;
+      for (const it of items) {
+        const pCode = it.product_code ? String(it.product_code).trim() : '';
+        const pName = it.product_name ? String(it.product_name).trim() : pCode;
+        const qty = parseInt(it.quantity_expected) || 1;
+        const note = it.notes ? String(it.notes).trim() : null;
+
+        if (pCode || pName) {
+          insertItemStmt.run(orderId, pCode || pName, pName, qty, note);
+          validItemsCount++;
+        }
+      }
+
+      return { orderId, validItemsCount };
+    });
+
+    const result = createOrderWithItems();
+    broadcastScanEvent("order_created", { id: result.orderId, order_code: cleanOrderCode, order_name: cleanOrderName });
+
+    res.json({
+      success: true,
+      message: `Đã tạo đơn hàng ${cleanOrderCode} thành công với ${result.validItemsCount} mặt hàng từ file Excel!`,
+      data: { id: result.orderId, order_code: cleanOrderCode }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Lỗi tạo đơn hàng từ Excel", error: error.message });
+  }
+});
+
 // ===== DASHBOARD STATS API =====
 app.get("/api/dashboard/stats", (req, res) => {
   try {
