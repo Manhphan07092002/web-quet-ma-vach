@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard - Hệ thống quét mã</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+        <h1>SmartAdmin</h1>
+      </div>
+      <nav class="nav-menu">
+        <a href="#dashboard" class="nav-item active" id="navDashboard" onclick="switchTab('dashboard')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Tổng quan & Báo cáo
+        </a>
+        <a href="#orders" class="nav-item" id="navOrders" onclick="switchTab('orders')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          Đơn hàng & Kiểm kê
+        </a>
+        <a href="#scans" class="nav-item" id="navScans" onclick="switchTab('scans')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/><path d="M7 12h10"/></svg>
+          Lịch sử quét
+        </a>
+        <a href="#products" class="nav-item" id="navProducts" onclick="switchTab('products')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          Danh mục Sản phẩm
+        </a>
+        <a href="#users" class="nav-item" id="navUsers" onclick="switchTab('users')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Quản lý Nhân sự
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user-card" id="sidebarUserCard">
+          <div class="sidebar-user-avatar">👤</div>
+          <div class="sidebar-user-info">
+            <span id="sidebarUserName" class="sidebar-user-name">Quản trị viên</span>
+            <span id="sidebarUserRole" class="sidebar-user-role">👑 Admin</span>
+          </div>
+        </div>
+        <button class="btn-sidebar-logout" onclick="handleLogout()" title="Đăng xuất">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+          Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <!-- TAB 1: DASHBOARD BÁO CÁO & BIỂU ĐỒ -->
+      <div id="tabDashboard" class="tab-pane active">
+        <header class="header">
+          <h2>Tổng quan & Thống kê Kho (Real-time)</h2>
+          <div class="header-actions">
+            <span id="dashLastUpdate">Cập nhật: Vừa xong</span>
+            <button class="btn btn-primary" onclick="fetchDashboardStats()">Làm mới</button>
+          </div>
+        </header>
+
+        <!-- KPI Metric Cards Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon-box blue">🚀</div>
+            <div class="kpi-info">
+              <span class="kpi-title">TỔNG LƯỢT QUÉT</span>
+              <h3 id="kpiTotalScans" class="kpi-value">0</h3>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon-box purple">📦</div>
+            <div class="kpi-info">
+              <span class="kpi-title">ĐƠN HÀNG XUẤT/NHẬP</span>
+              <h3 id="kpiOrdersSummary" class="kpi-value">0 đơn</h3>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon-box emerald">🏷️</div>
+            <div class="kpi-info">
+              <span class="kpi-title">DANH MỤC THIẾT BỊ</span>
+              <h3 id="kpiTotalProducts" class="kpi-value">0</h3>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon-box amber">🎯</div>
+            <div class="kpi-info">
+              <span class="kpi-title">TIẾN ĐỘ KIỂM ĐẾM CHUNG</span>
+              <h3 id="kpiOverallRate" class="kpi-value">0%</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Grid (2x2) -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h3>📈 Xu hướng quét theo ngày</h3>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartScansTimeline"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h3>🍩 Phân bố thiết bị theo nhóm</h3>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartProductCategories"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h3>🏆 Bảng xếp hạng năng suất nhân viên</h3>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartStaffProductivity"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h3>📊 So sánh tiến độ các đơn hàng</h3>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartOrdersProgress"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: QUẢN LÝ ĐƠN HÀNG & TIẾN ĐỘ KIỂM KÊ -->
+      <div id="tabOrders" class="tab-pane" style="display: none;">
+        <header class="header">
+          <h2>Quản lý Đơn hàng & Tiến độ Kiểm kê</h2>
+          <div class="header-actions">
+            <input type="text" id="orderSearchInput" class="search-input" placeholder="🔍 Tìm mã đơn, tên đơn..." oninput="handleOrderSearch()">
+            <button class="btn btn-primary" onclick="showCreateOrderModal()">+ Tạo đơn hàng mới</button>
+            <button class="btn btn-secondary" onclick="fetchOrders()">Làm mới</button>
+          </div>
+        </header>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="60">STT</th>
+                <th>Mã đơn hàng</th>
+                <th>Tên đơn hàng / Khách hàng</th>
+                <th>Tiến độ kiểm đếm</th>
+                <th>Số lượng</th>
+                <th>Trạng thái</th>
+                <th>Ngày tạo</th>
+                <th width="200">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="orderTableBody">
+              <tr>
+                <td colspan="8" class="loading-state">Đang tải danh sách đơn hàng...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 3: LỊCH SỬ QUÉT -->
+      <div id="tabScans" class="tab-pane" style="display: none;">
+        <header class="header">
+          <h2>Lịch sử quét mã (Real-time)</h2>
+          <div class="header-actions">
+            <span id="connectionBadge" class="connection-badge connecting">Đang kết nối...</span>
+            <span id="lastUpdate">Cập nhật: Đang tải...</span>
+            <button id="refreshBtn" class="btn btn-primary" onclick="fetchScans()">Làm mới</button>
+            <button id="exportBtn" class="btn btn-success" onclick="exportScans()">Xuất Excel</button>
+            <button id="deleteSelectedBtn" class="btn btn-warning" onclick="deleteSelectedScans()">Xóa đã chọn</button>
+            <button id="clearBtn" class="btn btn-danger" onclick="clearScans()">Xóa tất cả</button>
+          </div>
+        </header>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="40"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                <th>Thời gian</th>
+                <th>Nhân viên</th>
+                <th>Đơn hàng</th>
+                <th>Hình ảnh</th>
+                <th>Dữ liệu gốc</th>
+                <th>Loại mã</th>
+                <th>Sản phẩm</th>
+                <th>Serial</th>
+                <th>Thiết bị</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="scanTableBody">
+              <tr>
+                <td colspan="11" class="loading-state">Đang tải dữ liệu...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 4: QUẢN LÝ SẢN PHẨM -->
+      <div id="tabProducts" class="tab-pane" style="display: none;">
+        <header class="header">
+          <h2>Danh mục Sản phẩm</h2>
+          <div class="header-actions">
+            <input type="text" id="productSearchInput" class="search-input" placeholder="🔍 Tìm mã, tên sản phẩm..." oninput="handleProductSearch()">
+            <button class="btn btn-primary" onclick="showAddProductModal()">+ Thêm sản phẩm</button>
+            <button class="btn btn-success" onclick="document.getElementById('importProductFileInput').click()">📥 Nhập Excel</button>
+            <button class="btn btn-secondary" onclick="exportProducts()">📤 Xuất Excel</button>
+            <input type="file" id="importProductFileInput" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleProductImport(event)">
+          </div>
+        </header>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="60">STT</th>
+                <th>Mã sản phẩm (Barcode)</th>
+                <th>Tên sản phẩm</th>
+                <th>Model / Quy cách</th>
+                <th>Mô tả</th>
+                <th>Ngày tạo</th>
+                <th width="140">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="productTableBody">
+              <tr>
+                <td colspan="7" class="loading-state">Đang tải danh mục sản phẩm...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 5: QUẢN LÝ NHÂN SỰ & PHÂN QUYỀN -->
+      <div id="tabUsers" class="tab-pane" style="display: none;">
+        <header class="header">
+          <h2>Quản lý Nhân sự & Phân quyền</h2>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="showAddUserModal()">+ Thêm nhân viên</button>
+            <button class="btn btn-secondary" onclick="fetchUsers()">Làm mới</button>
+          </div>
+        </header>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th width="60">STT</th>
+                <th>Tên đăng nhập</th>
+                <th>Họ và tên</th>
+                <th>Vai trò</th>
+                <th>Mã PIN</th>
+                <th>Ngày tạo</th>
+                <th width="140">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="userTableBody">
+              <tr>
+                <td colspan="7" class="loading-state">Đang tải danh sách nhân sự...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Local database & uploads
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+server/sqlite.db
+server/uploads/*.jpg
+server/uploads/*.png
+server/uploads/*.jpeg
+server/test-barcode.png
+
+# SSL Certificates (Auto-generated locally)
+server/key.pem
+server/cert.pem
+
+# Environment & Logs
+.env
+*.log
+npm-debug.log*
+
+# Skills submodule / external repo
+skills/
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.agents/
+.gemini/
+brain/
