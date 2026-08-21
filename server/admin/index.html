@@ -177,7 +177,12 @@
       <!-- TAB 3: LỊCH SỬ QUÉT -->
       <div id="tabScans" class="tab-pane" style="display: none;">
         <header class="header">
-          <h2>Lịch sử quét mã (Real-time)</h2>
+          <div>
+            <h2>Lịch sử quét mã (Real-time)</h2>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              Theo dõi và kiểm tra chi tiết từng mã quét theo đơn hàng
+            </div>
+          </div>
           <div class="header-actions">
             <span id="connectionBadge" class="connection-badge connecting">Đang kết nối...</span>
             <span id="lastUpdate">Cập nhật: Đang tải...</span>
@@ -187,29 +192,67 @@
             <button id="clearBtn" class="btn btn-danger" onclick="clearScans()">Xóa tất cả</button>
           </div>
         </header>
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th width="40"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
-                <th>Thời gian</th>
-                <th>Nhân viên</th>
-                <th>Đơn hàng</th>
-                <th>Hình ảnh</th>
-                <th>Dữ liệu gốc</th>
-                <th>Loại mã</th>
-                <th>Sản phẩm</th>
-                <th>Serial</th>
-                <th>Thiết bị</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody id="scanTableBody">
-              <tr>
-                <td colspan="11" class="loading-state">Đang tải dữ liệu...</td>
-              </tr>
-            </tbody>
-          </table>
+
+        <!-- Thanh Bộ Lọc & Chuyển Chế Độ Xem Theo Đơn Hàng -->
+        <div class="scan-filter-bar">
+          <div class="filter-group">
+            <label for="scanOrderFilterSelect">📦 Lọc theo Đơn hàng:</label>
+            <select id="scanOrderFilterSelect" class="filter-select" onchange="handleScanFilterChange()">
+              <option value="ALL">-- Tất cả đơn hàng --</option>
+              <option value="NO_ORDER">-- Quét tự do (Không theo đơn) --</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="scanSearchInput">🔍 Tìm kiếm:</label>
+            <input type="text" id="scanSearchInput" class="search-input" placeholder="Tìm số S/N, tên sản phẩm..." oninput="handleScanFilterChange()">
+          </div>
+
+          <div class="filter-group" style="margin-left: auto;">
+            <label>Chế độ xem:</label>
+            <div class="view-mode-toggles">
+              <button id="btnViewGrouped" class="btn-toggle active" onclick="setScanViewMode('grouped')" title="Gom nhóm theo từng Đơn hàng">
+                📑 Theo Đơn hàng
+              </button>
+              <button id="btnViewFlat" class="btn-toggle" onclick="setScanViewMode('flat')" title="Hiển thị bảng liên tục">
+                📋 Bảng liên tục
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Khung hiển thị danh sách quét (Hỗ trợ cả Grouped và Flat view) -->
+        <div id="scansContainer" class="scans-container">
+          <!-- Bảng Flat chuẩn -->
+          <div id="flatTableWrapper" class="table-container" style="display: none;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th width="40"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                  <th>Thời gian</th>
+                  <th>Nhân viên</th>
+                  <th>Đơn hàng</th>
+                  <th>Hình ảnh</th>
+                  <th>Dữ liệu gốc (S/N)</th>
+                  <th>Loại mã</th>
+                  <th>Sản phẩm</th>
+                  <th>Serial</th>
+                  <th>Thiết bị</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody id="scanTableBody">
+                <tr>
+                  <td colspan="11" class="loading-state">Đang tải dữ liệu...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Danh sách Gom nhóm theo từng Đơn hàng -->
+          <div id="groupedOrdersWrapper" class="grouped-orders-list">
+            <!-- Render động các thẻ Đơn hàng kèm bảng quét con -->
+          </div>
         </div>
       </div>
 

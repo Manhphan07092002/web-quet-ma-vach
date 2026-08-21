@@ -1,5 +1,7 @@
 // ===== BIẾN TOÀN CỤC HỆ THỐNG ADMIN =====
 var currentTab = 'dashboard';
+var scanViewMode = 'grouped'; // 'grouped' | 'flat'
+var cachedScans = [];
 var chartTimeline = null;
 var chartCategories = null;
 var chartStaff = null;
@@ -179,57 +181,229 @@ function formatDate(isoString) {
   });
 }
 
+function setScanViewMode(mode) {
+  scanViewMode = mode;
+  const btnGrouped = document.getElementById('btnViewGrouped');
+  const btnFlat = document.getElementById('btnViewFlat');
+  const flatWrapper = document.getElementById('flatTableWrapper');
+  const groupedWrapper = document.getElementById('groupedOrdersWrapper');
+
+  if (btnGrouped) btnGrouped.classList.toggle('active', mode === 'grouped');
+  if (btnFlat) btnFlat.classList.toggle('active', mode === 'flat');
+
+  if (flatWrapper) flatWrapper.style.display = mode === 'flat' ? 'block' : 'none';
+  if (groupedWrapper) groupedWrapper.style.display = mode === 'grouped' ? 'flex' : 'none';
+
+  renderScans();
+}
+
+window.setScanViewMode = setScanViewMode;
+
+function handleScanFilterChange() {
+  renderScans();
+}
+
+window.handleScanFilterChange = handleScanFilterChange;
+
+function filterScansByOrder(orderCode) {
+  const filterSelect = document.getElementById('scanOrderFilterSelect');
+  if (filterSelect) {
+    filterSelect.value = orderCode || 'ALL';
+  }
+  renderScans();
+}
+
+window.filterScansByOrder = filterScansByOrder;
+
+function updateScanOrderFilterOptions(scans) {
+  const select = document.getElementById('scanOrderFilterSelect');
+  if (!select) return;
+
+  const currentVal = select.value;
+  const uniqueOrders = new Set();
+  scans.forEach(s => {
+    if (s.order_code) uniqueOrders.add(s.order_code);
+  });
+
+  if (Array.isArray(cachedOrders)) {
+    cachedOrders.forEach(o => {
+      if (o.order_code) uniqueOrders.add(o.order_code);
+    });
+  }
+
+  let optionsHtml = `<option value="ALL">-- Tất cả đơn hàng (${scans.length} mã) --</option>`;
+  Array.from(uniqueOrders).sort().forEach(code => {
+    const orderObj = (cachedOrders || []).find(o => o.order_code === code);
+    const orderLabel = orderObj ? `${code} - ${orderObj.order_name}` : code;
+    const count = scans.filter(s => s.order_code === code).length;
+    optionsHtml += `<option value="${code}">📦 ${orderLabel} (${count} mã)</option>`;
+  });
+  const freeScansCount = scans.filter(s => !s.order_code).length;
+  optionsHtml += `<option value="NO_ORDER">-- Quét tự do / Không theo đơn (${freeScansCount} mã) --</option>`;
+
+  select.innerHTML = optionsHtml;
+  if (Array.from(select.options).some(o => o.value === currentVal)) {
+    select.value = currentVal;
+  }
+}
+
 async function fetchScans(highlightId = null) {
   try {
     const response = await fetch('/api/scans');
     const result = await response.json();
     
     if (result.success) {
-      const scans = result.data;
-      
-      if (scans.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="loading-state">Chưa có dữ liệu quét nào.</td></tr>`;
-      } else {
-        tbody.innerHTML = scans.map(scan => {
-          const rawEscaped = (scan.raw_data || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-          const nameEscaped = (scan.product_name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-          const serialEscaped = (scan.serial_number || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-          const deviceEscaped = (scan.device_id || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-          const typeEscaped = (scan.code_type || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-          const isNewClass = highlightId && scan.id === highlightId ? ' class="row-new"' : '';
-
-          return `
-          <tr${isNewClass}>
-            <td style="text-align: center;"><input type="checkbox" class="scan-checkbox" value="${scan.id}"></td>
-            <td>${new Date(scan.scanned_at).toLocaleString('vi-VN')}</td>
-            <td><span class="user-badge-table">👤 ${scan.user_name || 'Nội bộ'}</span></td>
-            <td>${scan.order_code ? `<span class="order-badge">${scan.order_code}</span>` : '<span style="color:#9ca3af;font-size:12px;">-</span>'}</td>
-            <td>${scan.image_path ? `<button onclick="viewImage('${scan.image_path}')" class="btn btn-secondary" style="padding:4px 8px;font-size:12px;">Xem ảnh</button>` : '<span style="color:#9ca3af;font-size:12px;">Không có</span>'}</td>
-            <td style="font-weight: 500;">${scan.raw_data}</td>
-            <td><span class="status-badge ${scan.code_type === 'OCR_TEXT' ? 'ocr' : ''}">${scan.code_type || 'N/A'}</span></td>
-            <td>${scan.product_name || '-'}</td>
-            <td>${scan.serial_number || '-'}</td>
-            <td>${scan.device_id || '-'}</td>
-            <td style="display:flex; gap:4px; flex-wrap:wrap;">
-              <button class="btn btn-primary" style="padding:4px 8px;font-size:12px;" onclick="editScan(${scan.id}, '${rawEscaped}', '${nameEscaped}', '${serialEscaped}', '${deviceEscaped}', '${typeEscaped}')">Sửa</button>
-              <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;" onclick="deleteScan(${scan.id})">Xóa</button>
-            </td>
-          </tr>
-        `}).join('');
-      }
+      cachedScans = result.data || [];
+      updateScanOrderFilterOptions(cachedScans);
+      renderScans(highlightId);
       
       const now = new Date();
-      lastUpdateEl.textContent = `Cập nhật lúc: ${now.toLocaleTimeString('vi-VN')}`;
+      if (lastUpdateEl) lastUpdateEl.textContent = `Cập nhật lúc: ${now.toLocaleTimeString('vi-VN')}`;
       
-      // Reset select all checkbox
       const selectAll = document.getElementById('selectAll');
       if (selectAll) selectAll.checked = false;
     }
   } catch (err) {
     console.error('Failed to fetch scans:', err);
-    lastUpdateEl.textContent = 'Cập nhật thất bại!';
+    if (lastUpdateEl) lastUpdateEl.textContent = 'Cập nhật thất bại!';
   }
 }
+
+function renderScans(highlightId = null) {
+  const flatTbody = document.getElementById('scanTableBody');
+  const groupedWrapper = document.getElementById('groupedOrdersWrapper');
+  const orderFilter = document.getElementById('scanOrderFilterSelect')?.value || 'ALL';
+  const query = document.getElementById('scanSearchInput')?.value.trim().toLowerCase() || '';
+
+  let filtered = cachedScans.filter(scan => {
+    if (orderFilter === 'NO_ORDER') {
+      if (scan.order_code) return false;
+    } else if (orderFilter !== 'ALL') {
+      if (scan.order_code !== orderFilter) return false;
+    }
+
+    if (query) {
+      const matchRaw = (scan.raw_data || '').toLowerCase().includes(query);
+      const matchName = (scan.product_name || '').toLowerCase().includes(query);
+      const matchSerial = (scan.serial_number || '').toLowerCase().includes(query);
+      const matchUser = (scan.user_name || '').toLowerCase().includes(query);
+      const matchOrder = (scan.order_code || '').toLowerCase().includes(query);
+      if (!matchRaw && !matchName && !matchSerial && !matchUser && !matchOrder) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    if (flatTbody) flatTbody.innerHTML = `<tr><td colspan="11" class="loading-state">Không tìm thấy mã quét nào phù hợp.</td></tr>`;
+    if (groupedWrapper) groupedWrapper.innerHTML = `<div class="loading-state" style="padding: 40px; text-align: center; background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border-color);">Chưa có mã quét nào theo bộ lọc này.</div>`;
+    return;
+  }
+
+  // 1. Render Flat Table
+  if (flatTbody) {
+    flatTbody.innerHTML = filtered.map(scan => renderScanRow(scan, highlightId, true)).join('');
+  }
+
+  // 2. Render Grouped by Order View
+  if (groupedWrapper) {
+    const groups = new Map();
+    filtered.forEach(scan => {
+      const key = scan.order_code || '__FREE__';
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(scan);
+    });
+
+    let groupedHtml = '';
+    for (const [orderCode, scansList] of groups.entries()) {
+      const isFree = orderCode === '__FREE__';
+      const orderObj = (cachedOrders || []).find(o => o.order_code === orderCode);
+      const title = isFree ? 'Quét Tự Do (Không theo đơn hàng)' : (orderObj ? `${orderObj.order_name}` : `Đơn hàng ${orderCode}`);
+      const subtitle = isFree ? 'Các mã quét tự do phát sinh ngoài danh sách đơn hàng' : `Khách hàng: ${orderObj?.customer_name || 'Nội bộ'} ${orderObj?.notes ? `| ${orderObj.notes}` : ''}`;
+      const badgePill = isFree ? `<span class="order-badge" style="background:#e2e8f0; color:#475569;">Tự do</span>` : `<span class="order-badge-pill">${orderCode}</span>`;
+      const idsJson = JSON.stringify(scansList.map(s => s.id));
+
+      groupedHtml += `
+        <div class="scan-order-group-card">
+          <div class="scan-order-group-header">
+            <div class="order-header-left">
+              ${badgePill}
+              <div>
+                <div class="order-group-title">${title}</div>
+                <div class="order-group-subtitle">${subtitle}</div>
+              </div>
+            </div>
+            <div class="order-header-right">
+              <span class="order-count-badge">🔢 ${scansList.length} mã đã quét</span>
+              ${!isFree && orderObj ? `<button class="btn btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="viewOrderDetail(${orderObj.id})">🔍 Tiến độ</button>` : ''}
+              <button class="btn btn-success" style="padding: 4px 10px; font-size: 12px;" onclick='exportScansByIds(${idsJson})' title="Xuất Excel cho riêng đơn hàng này">📥 Xuất Excel</button>
+            </div>
+          </div>
+          <div class="table-container" style="border: none; border-radius: 0; box-shadow: none;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th width="40"><input type="checkbox" class="group-select-all" onclick="toggleGroupSelectAll(this)"></th>
+                  <th>Thời gian</th>
+                  <th>Nhân viên</th>
+                  <th>Hình ảnh</th>
+                  <th>Dữ liệu gốc (S/N)</th>
+                  <th>Loại mã</th>
+                  <th>Sản phẩm</th>
+                  <th>Serial</th>
+                  <th>Thiết bị</th>
+                  <th>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${scansList.map(scan => renderScanRow(scan, highlightId, false)).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+    groupedWrapper.innerHTML = groupedHtml;
+  }
+}
+
+function renderScanRow(scan, highlightId, showOrderCol = true) {
+  const rawEscaped = (scan.raw_data || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const nameEscaped = (scan.product_name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const serialEscaped = (scan.serial_number || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const deviceEscaped = (scan.device_id || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const typeEscaped = (scan.code_type || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const isNewClass = highlightId && scan.id === highlightId ? ' class="row-new"' : '';
+
+  return `
+    <tr${isNewClass}>
+      <td style="text-align: center;"><input type="checkbox" class="scan-checkbox" value="${scan.id}"></td>
+      <td>${new Date(scan.scanned_at).toLocaleString('vi-VN')}</td>
+      <td><span class="user-badge-table">👤 ${scan.user_name || 'Nội bộ'}</span></td>
+      ${showOrderCol ? `<td>${scan.order_code ? `<span class="order-badge" style="cursor:pointer;" onclick="filterScansByOrder('${scan.order_code}')" title="Nhấn để lọc riêng đơn này">${scan.order_code}</span>` : '<span style="color:#9ca3af;font-size:12px;">-</span>'}</td>` : ''}
+      <td>${scan.image_path ? `<button onclick="viewImage('${scan.image_path}')" class="btn btn-secondary" style="padding:4px 8px;font-size:12px;">Xem ảnh</button>` : '<span style="color:#9ca3af;font-size:12px;">Không có</span>'}</td>
+      <td style="font-weight: 500; font-family: monospace;">${scan.raw_data}</td>
+      <td><span class="status-badge ${scan.code_type === 'OCR_TEXT' ? 'ocr' : ''}">${scan.code_type || 'N/A'}</span></td>
+      <td style="font-weight: 600;">${scan.product_name || '-'}</td>
+      <td>${scan.serial_number || '-'}</td>
+      <td>${scan.device_id || '-'}</td>
+      <td style="display:flex; gap:4px; flex-wrap:wrap;">
+        <button class="btn btn-primary" style="padding:4px 8px;font-size:12px;" onclick="editScan(${scan.id}, '${rawEscaped}', '${nameEscaped}', '${serialEscaped}', '${deviceEscaped}', '${typeEscaped}')">Sửa</button>
+        <button class="btn btn-danger" style="padding:4px 8px;font-size:12px;" onclick="deleteScan(${scan.id})">Xóa</button>
+      </td>
+    </tr>
+  `;
+}
+
+function toggleGroupSelectAll(sourceCheckbox) {
+  const table = sourceCheckbox.closest('table');
+  if (!table) return;
+  const checkboxes = table.querySelectorAll('.scan-checkbox');
+  checkboxes.forEach(cb => cb.checked = sourceCheckbox.checked);
+}
+
+window.toggleGroupSelectAll = toggleGroupSelectAll;
 
 async function clearScans() {
   const currentUser = getAdminUser();
@@ -307,10 +481,7 @@ async function deleteSelectedScans() {
   }
 }
 
-async function exportScans() {
-  const checkboxes = document.querySelectorAll('.scan-checkbox:checked');
-  const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
-  
+async function exportScansByIds(ids = []) {
   try {
     const response = await fetch('/api/scans/export', {
       method: 'POST',
@@ -324,7 +495,6 @@ async function exportScans() {
       return;
     }
     
-    // Convert response to blob
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -337,7 +507,7 @@ async function exportScans() {
     
     Swal.fire({
       title: 'Xuất file thành công!',
-      text: ids.length > 0 ? `Đã xuất ${ids.length} mục đã chọn.` : 'Đã xuất toàn bộ dữ liệu.',
+      text: ids.length > 0 ? `Đã xuất ${ids.length} mã quét.` : 'Đã xuất toàn bộ dữ liệu.',
       icon: 'success',
       toast: true,
       position: 'top-end',
@@ -348,6 +518,24 @@ async function exportScans() {
     console.error('Lỗi khi xuất file:', err);
     Swal.fire('Lỗi mạng', "Không thể tải file Excel!", 'error');
   }
+}
+
+window.exportScansByIds = exportScansByIds;
+
+async function exportScans() {
+  const checkboxes = document.querySelectorAll('.scan-checkbox:checked');
+  let ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+  // Nếu không chọn checkbox nào nhưng đang lọc theo 1 đơn hàng cụ thể -> Xuất các mã của đơn đó
+  if (ids.length === 0) {
+    const orderFilter = document.getElementById('scanOrderFilterSelect')?.value;
+    if (orderFilter && orderFilter !== 'ALL') {
+      const filteredScans = cachedScans.filter(s => orderFilter === 'NO_ORDER' ? !s.order_code : s.order_code === orderFilter);
+      ids = filteredScans.map(s => s.id);
+    }
+  }
+  
+  await exportScansByIds(ids);
 }
 
 function toggleSelectAll() {
@@ -1371,8 +1559,9 @@ async function fetchOrders() {
     const res = await fetch('/api/orders');
     const result = await res.json();
     if (result.success) {
-      cachedOrders = result.data;
+      cachedOrders = result.data || [];
       renderOrderTable(cachedOrders);
+      updateScanOrderFilterOptions(cachedScans);
     }
   } catch (err) {
     console.error('Lỗi khi tải danh sách đơn hàng:', err);
