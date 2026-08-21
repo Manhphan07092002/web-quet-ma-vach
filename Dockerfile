@@ -34,13 +34,13 @@ RUN mkdir -p /app/server/uploads
 
 # Thiết lập biến môi trường
 ENV NODE_ENV=production
-ENV PORT=3500
-ENV HTTPS_PORT=3031
+ENV PORT=3800
+ENV HTTPS_PORT=3831
 
 # Expose 2 cổng dịch vụ:
-# - 3500: Admin Web Dashboard & Backend API
-# - 3031: Mobile Client HTTPS Camera Scanner
-EXPOSE 3500 3031
+# - 3800: Admin Web Dashboard & Backend API
+# - 3831: Mobile Client HTTPS Camera Scanner
+EXPOSE 3800 3831
 
 # Khởi chạy hệ thống bằng lệnh npm start (chạy song song app.js và frontend.js)
 WORKDIR /app/server

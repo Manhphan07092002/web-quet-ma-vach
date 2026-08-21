@@ -32,8 +32,8 @@ docker compose down
 
 ## 🌐 2. Địa chỉ truy cập các cổng dịch vụ
 
-* 🖥️ **Trang Quản trị Admin Dashboard**: `http://[IP-MÁY-CHỦ]:3500`
-* 📱 **Ứng dụng Quét mã Mobile Client**: `https://[IP-MÁY-CHỦ]:3031`
+* 🖥️ **Trang Quản trị Admin Dashboard**: `http://[IP-MÁY-CHỦ]:3800`
+* 📱 **Ứng dụng Quét mã Mobile Client**: `https://[IP-MÁY-CHỦ]:3831`
 
 ---
 

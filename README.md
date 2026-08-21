@@ -6,7 +6,7 @@
 
 ## 🌟 Tính Năng Nổi Bật
 
-### 📱 1. Mobile Scanner Client (`https://[IP]:3031`)
+### 📱 1. Mobile Scanner Client (`https://[IP]:3831`)
 * ⚡ **Đa chế độ quét**:
   * **1D Barcode**: Hỗ trợ Code 128, Code 39, EAN-13, UPC...
   * **2D QR Code**: Hỗ trợ QR Code, Data Matrix.
@@ -25,7 +25,7 @@
 
 ---
 
-### 🖥️ 2. Admin Dashboard Quản Trị (`http://localhost:3500`)
+### 🖥️ 2. Admin Dashboard Quản Trị (`http://localhost:3800`)
 * 📊 **Thống kê & KPI Real-time (Server-Sent Events - SSE)**:
   * Biểu đồ xu hướng quét theo ngày, phân bố danh mục thiết bị, tiến độ đơn hàng và năng suất từng nhân viên.
 * 📋 **Lịch sử quét mã Real-time**:
@@ -51,8 +51,8 @@
 ```bash
 docker compose up -d --build
 ```
-* **Admin Web**: `http://localhost:3500`
-* **Mobile Client**: `https://localhost:3031` (hoặc `https://[IP-LAN]:3031`)
+* **Admin Web**: `http://localhost:3800`
+* **Mobile Client**: `https://localhost:3831` (hoặc `https://[IP-LAN]:3831`)
 
 ### Cách 2: Chạy trực tiếp với Node.js
 ```bash

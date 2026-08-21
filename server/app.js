@@ -1339,7 +1339,7 @@ app.delete("/api/users/:id", requireRole(['admin']), (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3500;
+const PORT = process.env.PORT || 3800;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Admin Server API chạy tại http://localhost:${PORT}`);

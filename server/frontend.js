@@ -15,9 +15,10 @@ const getCerts = require("./generate-cert");
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
   // Reverse proxy toàn diện cho mọi API (GET /api/scans, POST /api/scans, PUT /api/scans/:id, GET /api/products, v.v.)
+  const BACKEND_PORT = process.env.PORT || 3800;
   app.use('/api', async (req, res) => {
     try {
-      const backendUrl = `http://127.0.0.1:3500${req.originalUrl}`;
+      const backendUrl = `http://127.0.0.1:${BACKEND_PORT}${req.originalUrl}`;
       const headers = { ...req.headers };
       delete headers.host;
 
@@ -45,15 +46,15 @@ const getCerts = require("./generate-cert");
       }
     } catch (err) {
       console.error("Proxy error:", err);
-      res.status(500).json({ success: false, message: "Không thể kết nối tới máy chủ backend (Port 3500)" });
+      res.status(500).json({ success: false, message: `Không thể kết nối tới máy chủ backend (Port ${BACKEND_PORT})` });
     }
   });
 
   // Serve frontend static files
   app.use(express.static(path.join(__dirname, "public")));
 
-  const PORT = 3031;
-  https.createServer(certs, app).listen(PORT, '0.0.0.0', () => {
-    console.log(`Frontend Web Client chạy tại https://localhost:${PORT}`);
+  const HTTPS_PORT = process.env.HTTPS_PORT || 3831;
+  https.createServer(certs, app).listen(HTTPS_PORT, '0.0.0.0', () => {
+    console.log(`Frontend Web Client chạy tại https://localhost:${HTTPS_PORT}`);
   });
 })();
