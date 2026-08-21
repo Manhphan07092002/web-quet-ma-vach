@@ -923,5 +923,118 @@ body {
   color: #93c5fd;
 }
 
+/* ===== RESPONSIVE DESIGN CHO ADMIN DASHBOARD ===== */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 220px;
+  }
+  .main-content {
+    padding: 20px;
+    gap: 18px;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px !important;
+  }
+  .charts-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .logo {
+    padding: 14px 18px;
+  }
+  .nav-menu {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 10px 14px;
+    gap: 6px;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+  .sidebar-footer {
+    padding: 10px 14px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .main-content {
+    padding: 14px;
+    gap: 16px;
+  }
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .header h2 {
+    font-size: 1.2rem;
+  }
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .header-actions .search-input {
+    width: 100%;
+    min-width: 100%;
+  }
+  .scan-filter-bar {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .scan-filter-bar .filter-group {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .scan-filter-bar .filter-select,
+  .scan-filter-bar .search-input {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+  .view-mode-toggles {
+    width: 100%;
+    display: flex;
+  }
+  .view-mode-toggles .btn-toggle {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .kpi-card {
+    padding: 14px !important;
+  }
+  .kpi-value {
+    font-size: 1.3rem !important;
+  }
+  .data-table th, .data-table td {
+    padding: 10px 12px !important;
+    font-size: 0.82rem !important;
+  }
+}
+
+
 
 
